@@ -10,8 +10,8 @@ from .patch import (
     minference_patch_vllm,
     new_patch,
     patch_hf,
-    patch_leank,
 )
+from modules.leank import patch_leank
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
