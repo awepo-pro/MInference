@@ -415,3 +415,5 @@ build/
 *.egg-info/
 *.so
 dist
+
+.eggs
