@@ -107,12 +107,35 @@ def init_minference_parameters(self):
         apply_rotary_pos_emb = getattr(import_module(model_path), "apply_rotary_pos_emb")
         self.apply_rotary_pos_emb = True
 
-def sum_all_diagonal_matrix(mat: torch.tensor):
+def sum_all_diagonal_matrix(mat: torch.Tensor):
+    """convert from matrix A to matrix B, 
+    matrix A \\in (b, h, seqlen=n, headdim=m)
+    A B C
+    D E F
+    G H I
+
+    matrix B \\in (b, h, n, n + m)
+    . . A B C 
+    . D E F .
+    G H I . .
+    """
     b, h, n, m = mat.shape
     zero_mat = torch.zeros((b, h, n, n)).to(mat.device) # Zero matrix used for padding
     mat_padded =  torch.cat((zero_mat, mat, zero_mat), -1) # pads the matrix on left and right
-    mat_strided = mat_padded.as_strided((1, 1, n, n + m), (1, n * (2 * n + m), 2 * n + m + 1, 1)) # Change the strides
+
+    """ https://www.notion.so/anton-po/2373e281dfc1814bbc09f93fe8b517dd?v=2373e281dfc1814c95fc000cf40cd2ba&p=2e03e281dfc18051a8def49585e18c80&pm=s
+    matrix: 
+    . . . A B C
+    . . D E F
+    . G H I
+    """
+    mat_strided = mat_padded.as_strided((1, 1, n, n + m), (1, n * (2 * n + m), 2 * n + m + 1, 1)) # Change the strides    
+    """
+    . G (H + D) (A + E + I) (B + F) C    
+    """
     sum_diags = torch.sum(mat_strided, 2) # Sums the resulting matrix's columns
+
+    # * remove first unwanted element
     return sum_diags[:,:,1:]
 
 def gather(t, dim, i):
@@ -791,26 +814,44 @@ def kvcompress_forward(
     return forward_map[method]
 
 def gather_last_q_vertical_slash_topk_vllm(self, q, k, v, head_id):
+    # * q, k, v \in (batch=1, head=1, seqlen, head_size)
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
     def vertical_and_slash_kernel(q, k, v, vertical_size, slash_size):
+        # * q, k, v \in (batch=1, head=1, seqlen, head_size)
+        # * it is prefill phrase, qkv have the same shape
         vertical_size, slash_size  = min(q_len, max(vertical_size, 30)), min(q_len, max(slash_size, 50))
+
+        # * slibing window
         last_q = min(64, q_len)
+        # * qk \in (batch, head, last_q, key_len), where last_q <= 64. we use last_q of query to attend full key
         qk = torch.einsum(f'bhmk, bhnk -> bhmn', q[:,:,-last_q:,:], k) / math.sqrt(q.shape[-1])
 
+        # * in qk \in (b, h, last_q, key_len), key[:-last_q] could be see by recent query (last_q) freely. so, only key[-last_q:] require masking
+        # * this range is in qk \in (b=1, h=1, last_q, -last_q), which might be 64 * 64. 
+        # * LAST_Q_MASK is lower-triangular mask, we try to mask qk[..., -last_q:]
         qk[:, :, :, -last_q:] = torch.where(LAST_Q_MASK[...,-last_q:,-last_q:].to(q.device), qk[:, :, :, -last_q:], -torch.inf)
         qk = torch.nn.functional.softmax(qk, dim=-1, dtype=torch.float32)
+
+        # * vertical \in (b, h, 1, key_len), it is reduced by last_q from qk
         vertical = qk.sum(-2, keepdim=True)
+        # * last 30 words are the most important (+inf) and must be selected by next line top-k. those words are most likely to be system prompt
         vertical[...,:30] = torch.inf
+        # * choose `vertical_size` of elements from `vertical` among `key_len` elements. 
+        # * if the element has high accumulative score, it means it is globally relevant. That imply it is important to other words
         vertical_topk = torch.topk(vertical, vertical_size, -1).indices
 
+        # * slash \in (b, h, last_q, [0, -last_q + 1))
+        # * we only keep history, it might be recent `last_q` element get too high value (noisy)
         slash = sum_all_diagonal_matrix(qk)[...,:-last_q + 1]
-        slash[...,-100:] = torch.inf
-        slash_topk = slash
-        slash = (q_len - 1) - torch.topk(slash, slash_size, -1).indices
 
-        return vertical_slash_sparse_attention(q, k, v, vertical_topk, slash)
+        # * recent history is important
+        slash[...,-100:] = torch.inf
+        # * the index means how many steps `ago`. ie. 95th among 100 words has high value, therefore this word is 4 (100 -1 - 95 = 4) steps ago from now
+        slash_topk = (q_len - 1) - torch.topk(slash, slash_size, -1).indices
+
+        return vertical_slash_sparse_attention(q, k, v, vertical_topk, slash_topk)
 
     def block_sparse_kernel(q, k, v, vertical_size=None, slash_size=None):
         topk = 100
@@ -838,9 +879,11 @@ def gather_last_q_vertical_slash_topk_vllm(self, q, k, v, head_id):
         vertical_size = int(vertical_size * self.patch_config.get("minference_ratio", 1))
         slash_size = int(slash_size * self.patch_config.get("minference_ratio", 1))
 
+    # * doecode phrase; sparse attention (might be more time-consuming, since N = 1 => O(3 * N ^ 2)) is useless, and standard attention kernel is already fast enough
     if q_len == 1:
         return dense(q, k, v)
-
+    
+    # * patch_config is specialized config; best_pattern is global optimal config. patch_config is for user to do experiment 
     if self.patch_config.get("flexprefill", False):
         return flexprefill_forward(q, k, v, {"attn_forward_config": self.patch_config["flexprefill_kwargs"]})
     if self.patch_config.get("a_shape", False):
@@ -883,37 +926,58 @@ def minference_vllm_forward(
         """
         self.patch_config = patch_config
         self.best_pattern = {int(ii): jj for ii, jj in pattern_config[layer_idx].items()}
+
+        # * this is grouped multiple attention
+        # * note: q \in (seqlen, num_head, head_size); kv \in (seqlen, num_kv_head, head_size), their #head are not the same
+        # * now, we might want to expand num_kv_head, such that num_kv_head = num_head
+        # * n_rep := number of query share 1 kv. ie. 32 query, 8 kv -> n_rep = 4
         def repeat_kv(hidden_states, n_rep):
             sqlen, num_head, head_dim = hidden_states.shape
             if n_rep == 1:
                 return hidden_states
+
+            # * hidden_states[:, :, None, :] intro 1 new dimentions -> [:, :, 1, :]
+            # * .expand(sqlen, num_head, n_rep, head_dim) duplicate `head_dim` n_rep times
             hidden_states = hidden_states[:, :, None, :].expand(sqlen, num_head, n_rep, head_dim)
+            
+            # * num_head * n_rep = num_head
             return hidden_states.reshape(sqlen, num_head * n_rep, head_dim)
 
         def minference_prefill_func(
             q, k, v,
         ):
             # (seq_len, num_heads, head_size)
+            # * grouped multple attention
             if q.size(-2) != k.size(-2):
                 k = repeat_kv(k, q.size(-2) // k.size(-2))
                 v = repeat_kv(v, q.size(-2) // v.size(-2))
 
             output = torch.empty_like(q)
+
+            # * start index of each head, ie. head: [1, 2, 3, ..., 15, 16], and 4 GPU; GPU1 := [1, 2, 3, 4], GPU2 := [5, 6, 7, 8], etc. 
+            # * for each GPU it handles 4 heads, which is equivalent to q.size(-2). note: query should be splited before passing into this function
+            # * ie. rank := [0, 1, 2, 3], head_idx_st for GPU 0: 0; GPU 1: 4; GPU 2: 8, GPU 3: 12
             head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
+
             for head in range(q.size(-2)):
+                # * fetch the specific head, q[:, head, :] -> (seqlen, 1, head_size) which collapse automatically. use unsqueeze(1) to retain the dim
                 q_head = q[:, head, :].unsqueeze(1)
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
 
                 # (1, seq_len, num_heads, head_size)
+                # * expand the dimension (1, seqlen, 1, head_size)
                 q_head = q_head[None, ...]
                 k_head = k_head[None, ...]
                 v_head = v_head[None, ...]
 
+                # * (1, 1, seqlen, head_size), which is for kernel input
                 q_head = q_head.transpose(1, 2)
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
 
+                # * `minference_vllm_forward` is embed into vllm, and `father_last_q_vertical_slash_topk_vllm` also embed into vllm backend
+                # * so we `self` has already contains this function 
                 out = self.gather_last_q_vertical_slash_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
 
                 out = out.transpose(1, 2).squeeze(0).contiguous()
@@ -922,6 +986,7 @@ def minference_vllm_forward(
 
         num_tokens, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
+        # * q, k , v \in (num_token, num_heads, head_size)
         query = query.view(-1, self.num_heads, self.head_size)
         key = key.view(-1, self.num_kv_heads, self.head_size)
         value = value.view(-1, self.num_kv_heads, self.head_size)
@@ -947,6 +1012,7 @@ def minference_vllm_forward(
         output = torch.empty_like(query)
         # Query for decode. KV is not needed because it is already cached.
         decode_query = query[num_prefill_tokens:]
+        
         # QKV for prefill.
         query = query[:num_prefill_tokens]
         key = key[:num_prefill_tokens]
@@ -956,7 +1022,10 @@ def minference_vllm_forward(
         assert decode_query.shape[0] == num_decode_tokens
 
         if prefill_meta := attn_metadata.prefill_metadata:
-            # Prompt run.
+            # Prompt run
+            # * prefill phrase, 
+            # * kv_cache is None indicate it is cold start, since kv_cache might be global (contains all previous kv)
+            # * block_tables.numel() means current batch of requests has no previous kv, use normal minference attention (no kv_cache) required
             if kv_cache is None or prefill_meta.block_tables.numel() == 0:
                 # normal attention
                 # When block_tables are not filled, it means q and k are the
@@ -975,14 +1044,18 @@ def minference_vllm_forward(
                 #     window_size=self.sliding_window,
                 #     alibi_slopes=self.alibi_slopes,
                 # )
+
+                # * qkv \in (#prefill_tokens, #head, head_size)
                 out = minference_prefill_func(query, key, value)
-                assert output[:num_prefill_tokens].shape == out.shape
+                # assert output[:num_prefill_tokens].shape == out.shape
                 output[:num_prefill_tokens] = out
             else:
                 # prefix-enabled attention
                 # TODO(Hai) this triton kernel has regression issue (broke) to
                 # deal with different data types between KV and FP8 KV cache,
                 # to be addressed separately.
+                # * it is still prefill phrase, however, kv_cache could be used
+                # * TODO: seems that no sparse attention in this paged attention, this is our goal
                 output[:num_prefill_tokens] = PagedAttention.forward_prefix(
                     query,
                     key,

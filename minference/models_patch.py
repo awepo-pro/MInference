@@ -46,6 +46,8 @@ class MInference:
         return self.patch_model(model)
 
     def patch_model(self, model):
+
+        # KV tyep setting
         if self.config.kv_type == "retr_attn":
             self.config.attn_kwargs.setdefault(
                 "max_seq_length", model.config.max_position_embeddings
@@ -84,6 +86,7 @@ class MInference:
             self.config.attn_kwargs.setdefault("round_to", 32)
             patch_leank(model, self.config)
 
+        # attention type setting
         if self.config.attn_type == "flexprefill":
             self.config.attn_kwargs.setdefault("gamma", 0.9)
             self.config.attn_kwargs.setdefault("tau", 0.1)

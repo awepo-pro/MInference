@@ -225,6 +225,8 @@ def _flash_attn_triton_decoding(q, k, v, dropout_p=0.0, softmax_scale=None, caus
     assert q.is_cuda and k.is_cuda and v.is_cuda
     if softmax_scale is None:
         softmax_scale = 1.0 / math.sqrt(d)
+
+    # * TODO(start): bias_stride could not be computed if bias if None
     bias = None
 
     has_bias = bias is not None
@@ -246,14 +248,23 @@ def _flash_attn_triton_decoding(q, k, v, dropout_p=0.0, softmax_scale=None, caus
         bias = bias.expand(batch, nheads, seqlen_q, seqlen_k)
     bias_strides = (bias.stride(0), bias.stride(1), bias.stride(2)) if has_bias else (0, 0, 0)
 
-    seqlen_q_rounded = math.ceil(seqlen_q / 128) * 128
+    # * TODO(finished) ======================================================================================
+
+    # * rounded = ceil_div(a, b) * b
+    seqlen_q_rounded = math.ceil(seqlen_q / 128) * 128 
     lse = torch.empty((batch, nheads, seqlen_q_rounded), device=q.device, dtype=torch.float32)
     tmp = torch.empty((batch, nheads, seqlen_q_rounded), device=q.device, dtype=torch.float32)
     o = torch.empty_like(q)
 
+    # * round up to power of 2, see https://www.notion.so/anton-po/2373e281dfc1814bbc09f93fe8b517dd?v=2373e281dfc1814c95fc000cf40cd2ba&p=2e03e281dfc18049abd0d79a65358040&pm=s
     BLOCK_HEADDIM = max(triton.next_power_of_2(d), 16)
     BLOCK = 128
     num_warps = 4 if d <= 64 else 8
+
+    # * triton.cdiv => ceil_div(a, b)
+    # * lambda META: (dim1, dim2)
+    # * - dim1 => number of blocks w.r.t seqlen. ie. seqlen = 32, block_M = 5 => number of block in x-axis: ceil_div(32, 5) = 7
+    # * dim2 => compute each batch and each head at same time. ie. batch = 4, head = 6, init blocks in y-axis: 24
     grid = lambda META: (triton.cdiv(seqlen_q, META["BLOCK_M"]), batch * nheads)
     _fwd_kernel[grid](
         q,

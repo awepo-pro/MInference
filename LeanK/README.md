@@ -64,14 +64,14 @@ pip install flash-attn==2.7.1.post4 --no-build-isolation
 pip install cloudpickle wonderwords bs4 nltk html2text pyyaml
 
 # Deployment and evaluation
-pip install tilelang==0.1.5
-pip install minference
+uv pip install tilelang==0.1.5
+uv pip install minference
 
-pip install jsonlines pandas seaborn tqdm
-pip install jieba mysql-connector-python fuzzywuzzy rouge SentencePiece
-pip install git+https://github.com/NVIDIA/NeMo.git
+uv pip install jsonlines pandas seaborn tqdm
+uv pip install jieba mysql-connector-python fuzzywuzzy rouge SentencePiece
+uv pip install git+https://github.com/NVIDIA/NeMo.git
 
-pip install ipython hydra-core lightning lhotse jiwer librosa pyannote.core pyannote-core webdataset editdistance pyannote.metrics tenacity
+uv pip install ipython hydra-core lightning lhotse jiwer librosa pyannote.core pyannote-core webdataset editdistance pyannote.metrics tenacity
 ```
 
 

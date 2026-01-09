@@ -1046,6 +1046,7 @@ def minference_patch_vllm_tp(self, config_file, patch_config):
     )
 
 
+# * main functionality is to replace vllm forward pass with minference's version
 def minference_patch_vllm_executor(config_file: str, patch_config={}):
     import json
     from collections import defaultdict
@@ -1078,6 +1079,9 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         config, vllm_version=vllm_version, patch_config=patch_config
     )
 
+    # * this is an embed function to 
+    # * vllm.Attention (https://github.com/vllm-project/vllm/blob/v0.4.3/vllm/attention/__init__.py), 
+    # *  - forward() (https://github.com/vllm-project/vllm/blob/v0.4.3/vllm/attention/layer.py)
     def vllm_attn_forward(
         self,
         query: torch.Tensor,
@@ -1092,10 +1096,14 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         output = torch.zeros(output_shape, dtype=query.dtype, device=query.device)
         hidden_size = output_shape[-1]
         forward_context = get_forward_context()
+
         attn_metadata = forward_context.attn_metadata
         if isinstance(attn_metadata, dict):
             attn_metadata = attn_metadata[self.layer_name]
+
         self_kv_cache = self.kv_cache[forward_context.virtual_engine]
+
+        # * self.impl is attention backend, read vllm.Attention for more details
         return self.impl.forward(
             self,
             query,
@@ -1264,15 +1272,25 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         attn_output, _ = self.dense(context_layer)
         return attn_output
 
+    # * replace LLama, ChatGLM with minference's version (impl above)
     def update_module(m):
         if isinstance(m, Attention):
+            # * note: this is first assignment, replace forward() in Attention class with vllm_attn_forward()
             m.forward = vllm_attn_forward.__get__(m, Attention)
 
+            # * m.impl is a backend class
             m = m.impl
             m_cls = m.__class__
+
+            # * this method might not originally in the backend class, however we could still init a new one
             m.gather_last_q_vertical_slash_topk_vllm = (
                 gather_last_q_vertical_slash_topk_vllm.__get__(m, m_cls)
             )
+            # * note: this is second assignment, m is not Attnetion class anymore, instead, it is one backend (read vllm_attn_forward) class.
+            # * above backend might not support block-sparse attention yet.
+
+            # * in backend class, we first assign our new minference's `gather_last_q_vertical_slash_topk_vllm` kernel (it might not in backend class), then 
+            # * assign replace the forward() 
             m.forward = attn_forward.__get__(m, m_cls)
         if isinstance(m, LlamaDecoderLayer):
             m.forward = llama_layer_forward_vllm.__get__(m, LlamaDecoderLayer)
@@ -1287,6 +1305,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         if isinstance(m, GLMAttention):
             m.forward = chatglm_attn_forward_vllm.__get__(m, GLMAttention)
 
+    # * minference_patch_vllm_executor return update_module method only. All above methods are helper for update_module
     return update_module
 
 
@@ -1296,6 +1315,8 @@ def minference_patch_vllm(
     patch_config: dict = {},
 ):
     if "workers" in llm.llm_engine.model_executor.__dict__:
+
+        # * use _run_worker to execute "minference_patch_vllm_tp" function on all machines
         llm.llm_engine.model_executor._run_workers(
             "minference_patch_vllm_tp",
             config_file=config_file,
@@ -1303,6 +1324,7 @@ def minference_patch_vllm(
         )
     else:
         llm.llm_engine.model_executor.driver_worker.model_runner.model.apply(
+            # * same as minference_patch_vllm_tp is just a wrapper of minference_patch_vllm_executor
             minference_patch_vllm_executor(config_file, patch_config)
         )
 
