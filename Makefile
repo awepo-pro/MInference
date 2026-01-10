@@ -18,3 +18,7 @@ style:
 
 test:
 	@${PYTHON} -m pytest -n 1 --dist=loadfile -s -v ./tests/
+
+run:
+	VLLM_WORKER_MULTIPROC_METHOD=spawn
+	${PYTHON} main.py 

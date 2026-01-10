@@ -206,89 +206,89 @@ def apply_rotary_pos_emb_glm4(
     return torch.cat((x_out2, x_pass), dim=-1)
 
 
-ATTN_FORWRAD = {
-    "a_shape": stream_llm_forward,
-    "minference": minference_forward,
-    "inf_llm": inf_llm_forward,
-}
+# ATTN_FORWRAD = {
+#      "a_shape": stream_llm_forward,
+#     "minference": minference_forward,
+#     "inf_llm": inf_llm_forward,
+# }
 
 
-def huggingface_forward(forward):
-    def hf_forward(
-        self,
-        hidden_states: torch.Tensor,
-        attention_mask=None,
-        position_ids=None,
-        past_key_value=None,
-        output_attentions: bool = False,
-        use_cache: bool = False,
-        **kwargs,
-    ):
-        assert not output_attentions
-
-        # for GLM-4
-        if "q_proj" not in self.__dict__["_modules"]:
-            query_pos = self.num_heads * self.head_dim
-            key_value_pos = query_pos // self.num_key_value_groups
-            self.q_proj = torch.nn.Linear(
-                hidden_states.size(-1),
-                query_pos,
-                device=hidden_states.device,
-                dtype=hidden_states.dtype,
-            )
-            self.k_proj = torch.nn.Linear(
-                hidden_states.size(-1),
-                key_value_pos,
-                device=hidden_states.device,
-                dtype=hidden_states.dtype,
-            )
-            self.v_proj = torch.nn.Linear(
-                hidden_states.size(-1),
-                key_value_pos,
-                device=hidden_states.device,
-                dtype=hidden_states.dtype,
-            )
-
-            self.q_proj.weight.copy_(self.qkv_proj.weight[:query_pos, :])
-            self.k_proj.weight.copy_(
-                self.qkv_proj.weight[query_pos : query_pos + key_value_pos, :]
-            )
-            self.v_proj.weight.copy_(
-                self.qkv_proj.weight[query_pos + key_value_pos :, :]
-            )
-
-            self.q_proj.bias.copy_(self.qkv_proj.bias[:query_pos])
-            self.k_proj.bias.copy_(
-                self.qkv_proj.bias[query_pos : query_pos + key_value_pos]
-            )
-            self.v_proj.bias.copy_(self.qkv_proj.bias[query_pos + key_value_pos :])
-
-            del self.qkv_proj
-
-        ret = forward(
-            self,
-            hidden_states,
-            hidden_states,
-            position_ids,
-            use_cache,
-            past_key_value,
-            self.q_proj,
-            self.k_proj,
-            self.v_proj,
-            self.o_proj,
-            self.head_dim,
-            self.num_heads,
-            self.num_key_value_heads,
-        )
-        if use_cache:
-            o, pkv = ret
-        else:
-            o = ret
-            pkv = None
-
-        return o, None, pkv
-
-    return hf_forward
+# def huggingface_forward(forward):
+#     def hf_forward(
+#         self,
+#         hidden_states: torch.Tensor,
+#         attention_mask=None,
+#         position_ids=None,
+#         past_key_value=None,
+#         output_attentions: bool = False,
+#         use_cache: bool = False,
+#         **kwargs,
+#     ):
+#         assert not output_attentions
+#
+#         # for GLM-4
+#         if "q_proj" not in self.__dict__["_modules"]:
+#             query_pos = self.num_heads * self.head_dim
+#             key_value_pos = query_pos // self.num_key_value_groups
+#             self.q_proj = torch.nn.Linear(
+#                 hidden_states.size(-1),
+#                 query_pos,
+#                 device=hidden_states.device,
+#                 dtype=hidden_states.dtype,
+#             )
+#             self.k_proj = torch.nn.Linear(
+#                 hidden_states.size(-1),
+#                 key_value_pos,
+#                 device=hidden_states.device,
+#                 dtype=hidden_states.dtype,
+#             )
+#             self.v_proj = torch.nn.Linear(
+#                 hidden_states.size(-1),
+#                 key_value_pos,
+#                 device=hidden_states.device,
+#                 dtype=hidden_states.dtype,
+#             )
+#
+#             self.q_proj.weight.copy_(self.qkv_proj.weight[:query_pos, :])
+#             self.k_proj.weight.copy_(
+#                 self.qkv_proj.weight[query_pos : query_pos + key_value_pos, :]
+#             )
+#             self.v_proj.weight.copy_(
+#                 self.qkv_proj.weight[query_pos + key_value_pos :, :]
+#             )
+#
+#             self.q_proj.bias.copy_(self.qkv_proj.bias[:query_pos])
+#             self.k_proj.bias.copy_(
+#                 self.qkv_proj.bias[query_pos : query_pos + key_value_pos]
+#             )
+#             self.v_proj.bias.copy_(self.qkv_proj.bias[query_pos + key_value_pos :])
+#
+#             del self.qkv_proj
+#
+#         ret = forward(
+#             self,
+#             hidden_states,
+#             hidden_states,
+#             position_ids,
+#             use_cache,
+#             past_key_value,
+#             self.q_proj,
+#             self.k_proj,
+#             self.v_proj,
+#             self.o_proj,
+#             self.head_dim,
+#             self.num_heads,
+#             self.num_key_value_heads,
+#         )
+#         if use_cache:
+#             o, pkv = ret
+#         else:
+#             o = ret
+#             pkv = None
+#
+#         return o, None, pkv
+#
+#     return hf_forward
 
 
 def hf_437_prepare_inputs_for_generation(
@@ -847,197 +847,197 @@ def patch_glm_4_1m(model, config):
     return model
 
 
-def new_patch(model, config):
-    if model.__class__.__name__ == "ChatGLMForConditionalGeneration":
-        model = patch_glm_4_1m(model, config)
-        return model
-
-    Attention = model.model.layers[0].self_attn.__class__
-    Model = model.model.__class__
-    DecoderLayer = model.model.layers[0].__class__
-
-    prefill_forward = prefill_forwards[config.attn_type]
-    decoding_forward = decoding_forwards[config.kv_type]
-
-    custom_rope_func = None  # apply custom rope func if needed
-    forward = partial(
-        attn_forward,
-        prefill_forward=prefill_forward,
-        decoding_forward=decoding_forward,
-        attn_forward_config=config.attn_kwargs,
-        customized_rope_func=custom_rope_func,
-    )
-
-    def update_module(m):
-        if isinstance(m, Attention):
-            m.forward = (
-                lambda self, *args, **kwargs: forward(self, *args, **kwargs)
-            ).__get__(m, Attention)
-        if isinstance(m, DecoderLayer):
-            m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
-
-    model.apply(update_module)
-    prepare_cache_func = prepare_cache(config.kv_type, config)
-    model._prepare_cache_for_generation = prepare_cache_func.__get__(
-        model, model.__class__
-    )
-
-    prepare_inputs_func = prepare_inputs_for_generation_kvcompression(
-        config.kv_type, config, model.prepare_inputs_for_generation
-    )
-    model.prepare_inputs_for_generation = prepare_inputs_func.__get__(
-        model, model.__class__
-    )
-
-    return model
-
-
-def minference_patch(model, config):
-    if config.kv_cache_cpu:
-        global KV_CACHE_CPU_DEVICE
-        KV_CACHE_CPU_DEVICE = config.kv_cache_cpu_device
-        model.config.kv_cache_cpu_device = config.kv_cache_cpu_device
-        return minference_patch_kv_cache_cpu(model)
-    if config.kv_type:
-        return minference_patch_with_kvcompress(model, config)
-
-    model = patch_glm_4_1m(model)
-
-    Attention = model.model.layers[0].self_attn.__class__
-    Model = model.model.__class__
-    DecoderLayer = model.model.layers[0].__class__
-
-    forward = minference_forward()
-
-    def update_module(m):
-        if isinstance(m, Attention):
-            m.init_minference_parameters = init_minference_parameters.__get__(
-                m, Attention
-            )
-            m.gather_last_q_vertical_slash_topk_v4 = (
-                gather_last_q_vertical_slash_topk_v4.__get__(m, Attention)
-            )
-            m.forward = forward.__get__(m, Attention)
-        if isinstance(m, DecoderLayer):
-            m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
-
-    model.apply(update_module)
-    model.prepare_inputs_for_generation = hf_437_prepare_inputs_for_generation.__get__(
-        model, model.__class__
-    )
-    model.model._use_sdpa = False
-
-    model.model._prepare_decoder_attention_mask = (
-        _prepare_decoder_attention_mask_inference.__get__(
-            model.model, model.model.__class__
-        )
-    )
-    model.model.forward = forward_llama_model.__get__(
-        model.model, model.model.__class__
-    )
-    model.forward = forward_llama_for_causal_lm.__get__(model, model.__class__)
-
-    print("Patched model for minference..")
-    return model
+# def new_patch(model, config):
+#     if model.__class__.__name__ == "ChatGLMForConditionalGeneration":
+#         model = patch_glm_4_1m(model, config)
+#         return model
+#
+#     Attention = model.model.layers[0].self_attn.__class__
+#     Model = model.model.__class__
+#     DecoderLayer = model.model.layers[0].__class__
+#
+#     prefill_forward = prefill_forwards[config.attn_type]
+#     decoding_forward = decoding_forwards[config.kv_type]
+#
+#     custom_rope_func = None  # apply custom rope func if needed
+#     forward = partial(
+#         attn_forward,
+#         prefill_forward=prefill_forward,
+#         decoding_forward=decoding_forward,
+#         attn_forward_config=config.attn_kwargs,
+#         customized_rope_func=custom_rope_func,
+#     )
+#
+#     def update_module(m):
+#         if isinstance(m, Attention):
+#             m.forward = (
+#                 lambda self, *args, **kwargs: forward(self, *args, **kwargs)
+#             ).__get__(m, Attention)
+#         if isinstance(m, DecoderLayer):
+#             m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
+#
+#     model.apply(update_module)
+#     prepare_cache_func = prepare_cache(config.kv_type, config)
+#     model._prepare_cache_for_generation = prepare_cache_func.__get__(
+#         model, model.__class__
+#     )
+#
+#     prepare_inputs_func = prepare_inputs_for_generation_kvcompression(
+#         config.kv_type, config, model.prepare_inputs_for_generation
+#     )
+#     model.prepare_inputs_for_generation = prepare_inputs_func.__get__(
+#         model, model.__class__
+#     )
+#
+#     return model
 
 
-def minference_patch_kv_cache_cpu(model):
-    transformers.cache_utils.DynamicCache.update = cpu_cache_update
-    transformers.cache_utils.DynamicCache.get = cpu_cache_get
+# def minference_patch(model, config):
+#     if config.kv_cache_cpu:
+#         global KV_CACHE_CPU_DEVICE
+#         KV_CACHE_CPU_DEVICE = config.kv_cache_cpu_device
+#         model.config.kv_cache_cpu_device = config.kv_cache_cpu_device
+#         return minference_patch_kv_cache_cpu(model)
+#     if config.kv_type:
+#         return minference_patch_with_kvcompress(model, config)
+#
+#     model = patch_glm_4_1m(model)
+#
+#     Attention = model.model.layers[0].self_attn.__class__
+#     Model = model.model.__class__
+#     DecoderLayer = model.model.layers[0].__class__
+#
+#     forward = minference_forward()
+#
+#     def update_module(m):
+#         if isinstance(m, Attention):
+#             m.init_minference_parameters = init_minference_parameters.__get__(
+#                 m, Attention
+#             )
+#             m.gather_last_q_vertical_slash_topk_v4 = (
+#                 gather_last_q_vertical_slash_topk_v4.__get__(m, Attention)
+#             )
+#             m.forward = forward.__get__(m, Attention)
+#         if isinstance(m, DecoderLayer):
+#             m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
+#
+#     model.apply(update_module)
+#     model.prepare_inputs_for_generation = hf_437_prepare_inputs_for_generation.__get__(
+#         model, model.__class__
+#     )
+#     model.model._use_sdpa = False
+#
+#     model.model._prepare_decoder_attention_mask = (
+#         _prepare_decoder_attention_mask_inference.__get__(
+#             model.model, model.model.__class__
+#         )
+#     )
+#     model.model.forward = forward_llama_model.__get__(
+#         model.model, model.model.__class__
+#     )
+#     model.forward = forward_llama_for_causal_lm.__get__(model, model.__class__)
+#
+#     print("Patched model for minference..")
+#     return model
 
-    model = patch_glm_4_1m(model)
 
-    Attention = model.model.layers[0].self_attn.__class__
-    Model = model.model.__class__
-    DecoderLayer = model.model.layers[0].__class__
+# def minference_patch_kv_cache_cpu(model):
+#     transformers.cache_utils.DynamicCache.update = cpu_cache_update
+#     transformers.cache_utils.DynamicCache.get = cpu_cache_get
+#
+#     model = patch_glm_4_1m(model)
+#
+#     Attention = model.model.layers[0].self_attn.__class__
+#     Model = model.model.__class__
+#     DecoderLayer = model.model.layers[0].__class__
+#
+#     forward = minference_kv_cache_cpu_forward()
+#
+#     def update_module(m):
+#         if isinstance(m, Attention):
+#             m.init_minference_parameters = init_minference_parameters.__get__(
+#                 m, Attention
+#             )
+#             m.gather_last_q_vertical_slash_topk_v4 = (
+#                 gather_last_q_vertical_slash_topk_v4.__get__(m, Attention)
+#             )
+#             m.forward = forward.__get__(m, Attention)
+#         if isinstance(m, DecoderLayer):
+#             m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
+#
+#     model.apply(update_module)
+#     model.prepare_inputs_for_generation = hf_437_prepare_inputs_for_generation.__get__(
+#         model, model.__class__
+#     )
+#     model.model._use_sdpa = False
+#
+#     model.model._prepare_decoder_attention_mask = (
+#         _prepare_decoder_attention_mask_inference.__get__(
+#             model.model, model.model.__class__
+#         )
+#     )
+#     model.model.forward = forward_llama_model.__get__(
+#         model.model, model.model.__class__
+#     )
+#     model.forward = forward_llama_for_causal_lm.__get__(model, model.__class__)
+#
+#     print("Patched model for MInference load KV Cache to CPU.")
+#     return model
+#
 
-    forward = minference_kv_cache_cpu_forward()
-
-    def update_module(m):
-        if isinstance(m, Attention):
-            m.init_minference_parameters = init_minference_parameters.__get__(
-                m, Attention
-            )
-            m.gather_last_q_vertical_slash_topk_v4 = (
-                gather_last_q_vertical_slash_topk_v4.__get__(m, Attention)
-            )
-            m.forward = forward.__get__(m, Attention)
-        if isinstance(m, DecoderLayer):
-            m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
-
-    model.apply(update_module)
-    model.prepare_inputs_for_generation = hf_437_prepare_inputs_for_generation.__get__(
-        model, model.__class__
-    )
-    model.model._use_sdpa = False
-
-    model.model._prepare_decoder_attention_mask = (
-        _prepare_decoder_attention_mask_inference.__get__(
-            model.model, model.model.__class__
-        )
-    )
-    model.model.forward = forward_llama_model.__get__(
-        model.model, model.model.__class__
-    )
-    model.forward = forward_llama_for_causal_lm.__get__(model, model.__class__)
-
-    print("Patched model for MInference load KV Cache to CPU.")
-    return model
-
-
-def minference_patch_with_kvcompress(model, config):
-    model = patch_glm_4_1m(model)
-
-    Attention = model.model.layers[0].self_attn.__class__
-    Model = model.model.__class__
-    DecoderLayer = model.model.layers[0].__class__
-
-    forward = kvcompress_forward(
-        Attention.forward, method=config.kv_type, config=config
-    )
-
-    def update_module(m):
-        if isinstance(m, Attention):
-            # if use minference with kvcompress, then patch with minference kernels
-            if config.attn_type in ["minference"]:
-                m.init_minference_parameters = init_minference_parameters.__get__(
-                    m, Attention
-                )
-                m.gather_last_q_vertical_slash_topk_v4 = (
-                    gather_last_q_vertical_slash_topk_v4.__get__(m, Attention)
-                )
-            if config.kv_type == "quest":
-                if LlamaFlashAttention2 is not None:
-                    m.flash_forward = types.MethodType(LlamaFlashAttention2.forward, m)
-                else:
-                    m.flash_forward = types.MethodType(LlamaAttention.forward, m)
-                m.token_budget = (
-                    1024 if not hasattr(m, "token_budget") else m.token_budget
-                )
-                m.chunk_size = 16 if not hasattr(m, "chunk_size") else m.chunk_size
-            m.forward = forward.__get__(m, Attention)
-
-    model.apply(update_module)
-    prepare_cache_func = prepare_cache(config.kv_type, config)
-    model._prepare_cache_for_generation = prepare_cache_func.__get__(
-        model, model.__class__
-    )
-
-    prepare_inputs_func = prepare_inputs_for_generation_kvcompression(
-        config.kv_type, config, model.prepare_inputs_for_generation
-    )
-    model.prepare_inputs_for_generation = prepare_inputs_func.__get__(
-        model, model.__class__
-    )
-
-    # model.model._use_sdpa = False
-    # model.model._prepare_decoder_attention_mask = (
-    #     _prepare_decoder_attention_mask_inference.__get__(
-    #         model.model, model.model.__class__
-    #     )
-    # )
-    print(f"Patched model for minference with {config.kv_type} ..")
-    return model
+# def minference_patch_with_kvcompress(model, config):
+#     model = patch_glm_4_1m(model)
+#
+#     Attention = model.model.layers[0].self_attn.__class__
+#     Model = model.model.__class__
+#     DecoderLayer = model.model.layers[0].__class__
+#
+#     forward = kvcompress_forward(
+#         Attention.forward, method=config.kv_type, config=config
+#     )
+#
+#     def update_module(m):
+#         if isinstance(m, Attention):
+#             # if use minference with kvcompress, then patch with minference kernels
+#             if config.attn_type in ["minference"]:
+#                 m.init_minference_parameters = init_minference_parameters.__get__(
+#                     m, Attention
+#                 )
+#                 m.gather_last_q_vertical_slash_topk_v4 = (
+#                     gather_last_q_vertical_slash_topk_v4.__get__(m, Attention)
+#                 )
+#             if config.kv_type == "quest":
+#                 if LlamaFlashAttention2 is not None:
+#                     m.flash_forward = types.MethodType(LlamaFlashAttention2.forward, m)
+#                 else:
+#                     m.flash_forward = types.MethodType(LlamaAttention.forward, m)
+#                 m.token_budget = (
+#                     1024 if not hasattr(m, "token_budget") else m.token_budget
+#                 )
+#                 m.chunk_size = 16 if not hasattr(m, "chunk_size") else m.chunk_size
+#             m.forward = forward.__get__(m, Attention)
+#
+#     model.apply(update_module)
+#     prepare_cache_func = prepare_cache(config.kv_type, config)
+#     model._prepare_cache_for_generation = prepare_cache_func.__get__(
+#         model, model.__class__
+#     )
+#
+#     prepare_inputs_func = prepare_inputs_for_generation_kvcompression(
+#         config.kv_type, config, model.prepare_inputs_for_generation
+#     )
+#     model.prepare_inputs_for_generation = prepare_inputs_func.__get__(
+#         model, model.__class__
+#     )
+#
+#     # model.model._use_sdpa = False
+#     # model.model._prepare_decoder_attention_mask = (
+#     #     _prepare_decoder_attention_mask_inference.__get__(
+#     #         model.model, model.model.__class__
+#     #     )
+#     # )
+#     print(f"Patched model for minference with {config.kv_type} ..")
+#     return model
 
 
 def minference_patch_vllm_tp(self, config_file, patch_config):
@@ -1087,7 +1087,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         query: torch.Tensor,
         key: torch.Tensor,
         value: torch.Tensor,
-        # kv_cache: Optional[torch.Tensor],
+        # kv_cache: Optional[torch.Tensor] = None,
         # attn_metadata,
         # kv_scale: float = 1.0,
         layer_idx: int = 0,
@@ -1100,7 +1100,11 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         attn_metadata = forward_context.attn_metadata
         if isinstance(attn_metadata, dict):
             attn_metadata = attn_metadata[self.layer_name]
-
+    
+        if self.kv_cache:
+            print('have kv cache managed by vllm!')
+        
+        raise Exception('not impl')
         self_kv_cache = self.kv_cache[forward_context.virtual_engine]
 
         # * self.impl is attention backend, read vllm.Attention for more details
@@ -1116,7 +1120,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         )
         # check self._kv_scale
         # kv_scale = getattr(self, "_kv_scale", getattr(self, "_k_scale", kv_scale))
-        return self.impl.forward(query, key, value, layer_idx)
+        # return self.impl.forward(query, key, value, layer_idx)
 
     def llama_model_forward_vllm(
         self,
@@ -1323,6 +1327,7 @@ def minference_patch_vllm(
             patch_config=patch_config,
         )
     else:
+        raise Exception("not yet impl")
         llm.llm_engine.model_executor.driver_worker.model_runner.model.apply(
             # * same as minference_patch_vllm_tp is just a wrapper of minference_patch_vllm_executor
             minference_patch_vllm_executor(config_file, patch_config)
@@ -1332,312 +1337,312 @@ def minference_patch_vllm(
     return llm
 
 
-def patch_hf(
-    model,
-    attn_type: str = "inf_llm",
-    attn_kwargs: dict = {},
-    base=None,
-    distance_scale=None,
-    **kwargs,
-):
-    attn_kwargs.update(kwargs)
-    # This approach lacks scalability and will be refactored.
-    from transformers import LlamaForCausalLM, MistralForCausalLM, Qwen2ForCausalLM
-    from transformers.models.llama.modeling_llama import BaseModelOutputWithPast
-
-    def model_forward(
-        self,
-        input_ids: torch.LongTensor = None,
-        attention_mask=None,
-        position_ids=None,
-        past_key_values=None,
-        inputs_embeds=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        *args,
-        **kwargs,
-    ):
-        output_attentions = (
-            output_attentions
-            if output_attentions is not None
-            else self.config.output_attentions
-        )
-        output_hidden_states = (
-            output_hidden_states
-            if output_hidden_states is not None
-            else self.config.output_hidden_states
-        )
-        use_cache = use_cache if use_cache is not None else self.config.use_cache
-
-        return_dict = (
-            return_dict if return_dict is not None else self.config.use_return_dict
-        )
-
-        # retrieve input_ids and inputs_embeds
-        if input_ids is not None and inputs_embeds is not None:
-            raise ValueError(
-                "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"
-            )
-        elif input_ids is not None:
-            batch_size, seq_length = input_ids.shape
-        elif inputs_embeds is not None:
-            batch_size, seq_length, _ = inputs_embeds.shape
-        else:
-            raise ValueError(
-                "You have to specify either decoder_input_ids or decoder_inputs_embeds"
-            )
-
-        if inputs_embeds is None:
-            inputs_embeds = self.embed_tokens(input_ids)
-            if hasattr(self, "config") and hasattr(self.config, "scale_emb"):
-                inputs_embeds = inputs_embeds * self.config.scale_emb
-
-        if use_cache:
-            pkv = tuple()
-
-        else:
-            pkv = None
-
-        hidden_states = inputs_embeds
-
-        # decoder layers
-        all_hidden_states = () if output_hidden_states else None
-        all_self_attns = () if output_attentions else None
-
-        for i, decoder_layer in enumerate(self.layers):
-            if output_hidden_states:
-                all_hidden_states += (hidden_states,)
-
-            layer_outputs = decoder_layer(
-                hidden_states,
-                attention_mask=attention_mask,
-                position_ids=self.position_bias,
-                past_key_value=(
-                    past_key_values[i] if past_key_values is not None else None
-                ),
-                output_attentions=output_attentions,
-                use_cache=use_cache,
-            )
-
-            hidden_states = layer_outputs[0]
-
-            if use_cache:
-                _cache = layer_outputs[2 if output_attentions else 1]
-                pkv = pkv + (_cache,)
-
-            if output_attentions:
-                all_self_attns += (layer_outputs[1],)
-
-        # hidden_states = self.norm(hidden_states)
-        for start_idx in range(0, hidden_states.size(1), 32000):
-            end_idx = min(hidden_states.size(1), start_idx + 32000)
-            hidden_states[:, start_idx:end_idx, :] = self.norm(
-                hidden_states[:, start_idx:end_idx, :]
-            )
-
-        # add hidden states from the last decoder layer
-        if output_hidden_states:
-            all_hidden_states += (hidden_states,)
-
-        if not return_dict:
-            return tuple(
-                v
-                for v in [hidden_states, pkv, all_hidden_states, all_self_attns]
-                if v is not None
-            )
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=pkv,
-            hidden_states=all_hidden_states,
-            attentions=all_self_attns,
-        )
-
-    forward = huggingface_forward(ATTN_FORWRAD[attn_type](**attn_kwargs))
-    model = patch_glm_4_1m(model)
-
-    is_glm4 = False
-    if isinstance(model, LlamaForCausalLM):
-        Attention = model.model.layers[0].self_attn.__class__
-        Model = model.model.__class__
-    elif isinstance(model, MistralForCausalLM):
-        Attention = model.model.layers[0].self_attn.__class__
-        Model = model.model.__class__
-    elif isinstance(model, Qwen2ForCausalLM):
-        Attention = model.model.layers[0].self_attn.__class__
-        Model = model.model.__class__
-    elif model.__class__.__name__ == "MiniCPMForCausalLM":
-        Attention = model.model.layers[0].self_attn.__class__
-        Model = model.model.__class__
-    elif model.__class__.__name__ == "Phi3ForCausalLM":
-        Attention = model.model.layers[0].self_attn.__class__
-        Model = model.model.__class__
-    elif model.__class__.__name__ == "ChatGLMForConditionalGeneration":
-        Attention = model.model.layers[0].self_attn.__class__
-        Model = model.model.__class__
-        base = model.model.layers[0].self_attn.rotary_emb.rope_ratio * 10000
-        is_glm4 = True
-    else:
-        raise ValueError("Only supports llama, mistral and qwen2 models.")
-
-    hf_rope = model.model.layers[0].self_attn.rotary_emb
-    base = (
-        base
-        if base is not None
-        else (hf_rope.base if "base" in hf_rope.__dict__ else hf_rope.config.rope_theta)
-    )
-    distance_scale = distance_scale if distance_scale is not None else 1.0
-    rope = RotaryEmbeddingESM(
-        (
-            hf_rope.dim
-            if "dim" in hf_rope.__dict__
-            else hf_rope.config.hidden_size // hf_rope.config.num_attention_heads
-        ),
-        base,
-        distance_scale,
-        is_glm4=is_glm4,
-    )
-    model.model.position_bias = rope
-    model.model.hf_position_bias = hf_rope
-    DecoderLayer = model.model.layers[0].__class__
-
-    def set_forward(m):
-        if isinstance(m, Attention):
-            m._old_forward = m.forward
-            m.forward = forward.__get__(m, Attention)
-        if isinstance(m, DecoderLayer):
-            m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
-
-    model.apply(set_forward)
-
-    model._old_prepare_inputs_for_generation = model.prepare_inputs_for_generation
-    model.prepare_inputs_for_generation = prepare_inputs_for_generation.__get__(
-        model, model.__class__
-    )
-    model.model._old_forward = model.model.forward
-    model.model.forward = model_forward.__get__(model.model, Model)
-    model.forward = forward_llama_for_causal_lm.__get__(model, model.__class__)
-
-    if attn_type == "inf_llm":
-        tokenizer = transformers.AutoTokenizer.from_pretrained(
-            model.config._name_or_path, trust_remote_code=True
-        )
-        model = InfLLMGenerator(model, tokenizer)
-
-    print("Patched model ...")
-    return model
-
-
-def fp8_cache_update(
-    self,
-    key_states: torch.Tensor,
-    value_states: torch.Tensor,
-    layer_idx: int,
-    cache_kwargs: Optional[Dict[str, Any]] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Updates the cache with the new `key_states` and `value_states` for the layer `layer_idx`.
-
-    Parameters:
-        key_states (`torch.Tensor`):
-            The new key states to cache.
-        value_states (`torch.Tensor`):
-            The new value states to cache.
-        layer_idx (`int`):
-            The index of the layer to cache the states for.
-        cache_kwargs (`Dict[str, Any]`, `optional`):
-            Additional arguments for the cache subclass. No additional arguments are used in `DynamicCache`.
-
-    Return:
-        A tuple containing the updated key and value states.
-    """
-    # Update the number of seen tokens
-    if layer_idx == 0:
-        self.seen_tokens += key_states.shape[-2]
-
-    # Update the cache
-    if len(self.key_cache) <= layer_idx:
-        self.key_cache.append(key_states.to(torch.float8_e5m2))
-        self.value_cache.append(value_states.to(torch.float8_e5m2))
-    else:
-        self.key_cache[layer_idx] = torch.cat(
-            [self.key_cache[layer_idx], key_states.to(torch.float8_e5m2)], dim=-2
-        )
-        self.value_cache[layer_idx] = torch.cat(
-            [self.value_cache[layer_idx], value_states.to(torch.float8_e5m2)], dim=-2
-        )
-
-    return self.key_cache[layer_idx].to(key_states.dtype), self.value_cache[
-        layer_idx
-    ].to(key_states.dtype)
+# def patch_hf(
+#     model,
+#     attn_type: str = "inf_llm",
+#     attn_kwargs: dict = {},
+#     base=None,
+#     distance_scale=None,
+#     **kwargs,
+# ):
+#     attn_kwargs.update(kwargs)
+#     # This approach lacks scalability and will be refactored.
+#     from transformers import LlamaForCausalLM, MistralForCausalLM, Qwen2ForCausalLM
+#     from transformers.models.llama.modeling_llama import BaseModelOutputWithPast
+#
+#     def model_forward(
+#         self,
+#         input_ids: torch.LongTensor = None,
+#         attention_mask=None,
+#         position_ids=None,
+#         past_key_values=None,
+#         inputs_embeds=None,
+#         use_cache=None,
+#         output_attentions=None,
+#         output_hidden_states=None,
+#         return_dict=None,
+#         *args,
+#         **kwargs,
+#     ):
+#         output_attentions = (
+#             output_attentions
+#             if output_attentions is not None
+#             else self.config.output_attentions
+#         )
+#         output_hidden_states = (
+#             output_hidden_states
+#             if output_hidden_states is not None
+#             else self.config.output_hidden_states
+#         )
+#         use_cache = use_cache if use_cache is not None else self.config.use_cache
+#
+#         return_dict = (
+#             return_dict if return_dict is not None else self.config.use_return_dict
+#         )
+#
+#         # retrieve input_ids and inputs_embeds
+#         if input_ids is not None and inputs_embeds is not None:
+#             raise ValueError(
+#                 "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"
+#             )
+#         elif input_ids is not None:
+#             batch_size, seq_length = input_ids.shape
+#         elif inputs_embeds is not None:
+#             batch_size, seq_length, _ = inputs_embeds.shape
+#         else:
+#             raise ValueError(
+#                 "You have to specify either decoder_input_ids or decoder_inputs_embeds"
+#             )
+#
+#         if inputs_embeds is None:
+#             inputs_embeds = self.embed_tokens(input_ids)
+#             if hasattr(self, "config") and hasattr(self.config, "scale_emb"):
+#                 inputs_embeds = inputs_embeds * self.config.scale_emb
+#
+#         if use_cache:
+#             pkv = tuple()
+#
+#         else:
+#             pkv = None
+#
+#         hidden_states = inputs_embeds
+#
+#         # decoder layers
+#         all_hidden_states = () if output_hidden_states else None
+#         all_self_attns = () if output_attentions else None
+#
+#         for i, decoder_layer in enumerate(self.layers):
+#             if output_hidden_states:
+#                 all_hidden_states += (hidden_states,)
+#
+#             layer_outputs = decoder_layer(
+#                 hidden_states,
+#                 attention_mask=attention_mask,
+#                 position_ids=self.position_bias,
+#                 past_key_value=(
+#                     past_key_values[i] if past_key_values is not None else None
+#                 ),
+#                 output_attentions=output_attentions,
+#                 use_cache=use_cache,
+#             )
+#
+#             hidden_states = layer_outputs[0]
+#
+#             if use_cache:
+#                 _cache = layer_outputs[2 if output_attentions else 1]
+#                 pkv = pkv + (_cache,)
+#
+#             if output_attentions:
+#                 all_self_attns += (layer_outputs[1],)
+#
+#         # hidden_states = self.norm(hidden_states)
+#         for start_idx in range(0, hidden_states.size(1), 32000):
+#             end_idx = min(hidden_states.size(1), start_idx + 32000)
+#             hidden_states[:, start_idx:end_idx, :] = self.norm(
+#                 hidden_states[:, start_idx:end_idx, :]
+#             )
+#
+#         # add hidden states from the last decoder layer
+#         if output_hidden_states:
+#             all_hidden_states += (hidden_states,)
+#
+#         if not return_dict:
+#             return tuple(
+#                 v
+#                 for v in [hidden_states, pkv, all_hidden_states, all_self_attns]
+#                 if v is not None
+#             )
+#         return BaseModelOutputWithPast(
+#             last_hidden_state=hidden_states,
+#             past_key_values=pkv,
+#             hidden_states=all_hidden_states,
+#             attentions=all_self_attns,
+#         )
+#
+#     forward = huggingface_forward(ATTN_FORWRAD[attn_type](**attn_kwargs))
+#     model = patch_glm_4_1m(model)
+#
+#     is_glm4 = False
+#     if isinstance(model, LlamaForCausalLM):
+#         Attention = model.model.layers[0].self_attn.__class__
+#         Model = model.model.__class__
+#     elif isinstance(model, MistralForCausalLM):
+#         Attention = model.model.layers[0].self_attn.__class__
+#         Model = model.model.__class__
+#     elif isinstance(model, Qwen2ForCausalLM):
+#         Attention = model.model.layers[0].self_attn.__class__
+#         Model = model.model.__class__
+#     elif model.__class__.__name__ == "MiniCPMForCausalLM":
+#         Attention = model.model.layers[0].self_attn.__class__
+#         Model = model.model.__class__
+#     elif model.__class__.__name__ == "Phi3ForCausalLM":
+#         Attention = model.model.layers[0].self_attn.__class__
+#         Model = model.model.__class__
+#     elif model.__class__.__name__ == "ChatGLMForConditionalGeneration":
+#         Attention = model.model.layers[0].self_attn.__class__
+#         Model = model.model.__class__
+#         base = model.model.layers[0].self_attn.rotary_emb.rope_ratio * 10000
+#         is_glm4 = True
+#     else:
+#         raise ValueError("Only supports llama, mistral and qwen2 models.")
+#
+#     hf_rope = model.model.layers[0].self_attn.rotary_emb
+#     base = (
+#         base
+#         if base is not None
+#         else (hf_rope.base if "base" in hf_rope.__dict__ else hf_rope.config.rope_theta)
+#     )
+#     distance_scale = distance_scale if distance_scale is not None else 1.0
+#     rope = RotaryEmbeddingESM(
+#         (
+#             hf_rope.dim
+#             if "dim" in hf_rope.__dict__
+#             else hf_rope.config.hidden_size // hf_rope.config.num_attention_heads
+#         ),
+#         base,
+#         distance_scale,
+#         is_glm4=is_glm4,
+#     )
+#     model.model.position_bias = rope
+#     model.model.hf_position_bias = hf_rope
+#     DecoderLayer = model.model.layers[0].__class__
+#
+    # def set_forward(m):
+    #     if isinstance(m, Attention):
+    #         m._old_forward = m.forward
+    #         m.forward = forward.__get__(m, Attention)
+    #     if isinstance(m, DecoderLayer):
+    #         m.forward = forward_llama_decoder_layer.__get__(m, DecoderLayer)
+    #
+    # model.apply(set_forward)
+    #
+    # model._old_prepare_inputs_for_generation = model.prepare_inputs_for_generation
+    # model.prepare_inputs_for_generation = prepare_inputs_for_generation.__get__(
+    #     model, model.__class__
+    # )
+    # model.model._old_forward = model.model.forward
+    # model.model.forward = model_forward.__get__(model.model, Model)
+    # model.forward = forward_llama_for_causal_lm.__get__(model, model.__class__)
+    #
+    # if attn_type == "inf_llm":
+    #     tokenizer = transformers.AutoTokenizer.from_pretrained(
+    #         model.config._name_or_path, trust_remote_code=True
+    #     )
+    #     model = InfLLMGenerator(model, tokenizer)
+    #
+    # print("Patched model ...")
+    # return model
 
 
-def cpu_cache_update(
-    self,
-    key_states: torch.Tensor,
-    value_states: torch.Tensor,
-    layer_idx: int,
-    cache_kwargs: Optional[Dict[str, Any]] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    if layer_idx == 0:
-        if "_seen_tokens" in self.__dict__:
-            self._seen_tokens += key_states.shape[-2]
-        else:
-            self.seen_tokens += key_states.shape[-2]
+# def fp8_cache_update(
+#     self,
+#     key_states: torch.Tensor,
+#     value_states: torch.Tensor,
+#     layer_idx: int,
+#     cache_kwargs: Optional[Dict[str, Any]] = None,
+# ) -> Tuple[torch.Tensor, torch.Tensor]:
+#     """
+#     Updates the cache with the new `key_states` and `value_states` for the layer `layer_idx`.
+#
+#     Parameters:
+#         key_states (`torch.Tensor`):
+#             The new key states to cache.
+#         value_states (`torch.Tensor`):
+#             The new value states to cache.
+#         layer_idx (`int`):
+#             The index of the layer to cache the states for.
+#         cache_kwargs (`Dict[str, Any]`, `optional`):
+#             Additional arguments for the cache subclass. No additional arguments are used in `DynamicCache`.
+#
+#     Return:
+#         A tuple containing the updated key and value states.
+#     """
+#     # Update the number of seen tokens
+#     if layer_idx == 0:
+#         self.seen_tokens += key_states.shape[-2]
+#
+#     # Update the cache
+#     if len(self.key_cache) <= layer_idx:
+#         self.key_cache.append(key_states.to(torch.float8_e5m2))
+#         self.value_cache.append(value_states.to(torch.float8_e5m2))
+#     else:
+#         self.key_cache[layer_idx] = torch.cat(
+#             [self.key_cache[layer_idx], key_states.to(torch.float8_e5m2)], dim=-2
+#         )
+#         self.value_cache[layer_idx] = torch.cat(
+#             [self.value_cache[layer_idx], value_states.to(torch.float8_e5m2)], dim=-2
+#         )
+#
+#     return self.key_cache[layer_idx].to(key_states.dtype), self.value_cache[
+#         layer_idx
+#     ].to(key_states.dtype)
+#
 
-    # Update the cache
-    if len(self.key_cache) <= layer_idx:
-        self.key_cache.append(key_states.to(KV_CACHE_CPU_DEVICE))
-        self.value_cache.append(value_states.to(KV_CACHE_CPU_DEVICE))
-    else:
-        self.key_cache[layer_idx] = torch.cat(
-            [self.key_cache[layer_idx], key_states.to(KV_CACHE_CPU_DEVICE)], dim=-2
-        )
-        self.value_cache[layer_idx] = torch.cat(
-            [self.value_cache[layer_idx], value_states.to(KV_CACHE_CPU_DEVICE)], dim=-2
-        )
+# def cpu_cache_update(
+#     self,
+#     key_states: torch.Tensor,
+#     value_states: torch.Tensor,
+#     layer_idx: int,
+#     cache_kwargs: Optional[Dict[str, Any]] = None,
+# ) -> Tuple[torch.Tensor, torch.Tensor]:
+#     if layer_idx == 0:
+#         if "_seen_tokens" in self.__dict__:
+#             self._seen_tokens += key_states.shape[-2]
+#         else:
+#             self.seen_tokens += key_states.shape[-2]
+#
+#     # Update the cache
+#     if len(self.key_cache) <= layer_idx:
+#         self.key_cache.append(key_states.to(KV_CACHE_CPU_DEVICE))
+#         self.value_cache.append(value_states.to(KV_CACHE_CPU_DEVICE))
+#     else:
+#         self.key_cache[layer_idx] = torch.cat(
+#             [self.key_cache[layer_idx], key_states.to(KV_CACHE_CPU_DEVICE)], dim=-2
+#         )
+#         self.value_cache[layer_idx] = torch.cat(
+#             [self.value_cache[layer_idx], value_states.to(KV_CACHE_CPU_DEVICE)], dim=-2
+#         )
 
 
-def cpu_cache_get(
-    self,
-    key_states: torch.Tensor,
-    value_states: torch.Tensor,
-    layer_idx: int,
-    head_idx: int,
-    cache_kwargs: Optional[Dict[str, Any]] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    if layer_idx == 0:
-        if "_seen_tokens" in self.__dict__:
-            self._seen_tokens += key_states.shape[-2]
-        else:
-            self.seen_tokens += key_states.shape[-2]
-
-    # Update the cache
-    if len(self.key_cache) <= layer_idx:
-        return key_states, value_states
-    elif KV_CACHE_CPU_DEVICE == "cpu":
-        key_states = torch.cat(
-            [self.key_cache[layer_idx][:, head_idx : head_idx + 1].cuda(), key_states],
-            dim=-2,
-        )
-        value_states = torch.cat(
-            [
-                self.value_cache[layer_idx][:, head_idx : head_idx + 1].cuda(),
-                value_states,
-            ],
-            dim=-2,
-        )
-        return key_states, value_states
-    key_states = torch.cat(
-        [self.key_cache[layer_idx][:, head_idx : head_idx + 1], key_states],
-        dim=-2,
-    )
-    value_states = torch.cat(
-        [
-            self.value_cache[layer_idx][:, head_idx : head_idx + 1],
-            value_states,
-        ],
-        dim=-2,
-    )
-    return key_states, value_states
+# def cpu_cache_get(
+#     self,
+#     key_states: torch.Tensor,
+#     value_states: torch.Tensor,
+#     layer_idx: int,
+#     head_idx: int,
+#     cache_kwargs: Optional[Dict[str, Any]] = None,
+# ) -> Tuple[torch.Tensor, torch.Tensor]:
+#     if layer_idx == 0:
+#         if "_seen_tokens" in self.__dict__:
+#             self._seen_tokens += key_states.shape[-2]
+#         else:
+#             self.seen_tokens += key_states.shape[-2]
+#
+#     # Update the cache
+#     if len(self.key_cache) <= layer_idx:
+#         return key_states, value_states
+#     elif KV_CACHE_CPU_DEVICE == "cpu":
+#         key_states = torch.cat(
+#             [self.key_cache[layer_idx][:, head_idx : head_idx + 1].cuda(), key_states],
+#             dim=-2,
+#         )
+#         value_states = torch.cat(
+#             [
+#                 self.value_cache[layer_idx][:, head_idx : head_idx + 1].cuda(),
+#                 value_states,
+#             ],
+#             dim=-2,
+#         )
+#         return key_states, value_states
+#     key_states = torch.cat(
+#         [self.key_cache[layer_idx][:, head_idx : head_idx + 1], key_states],
+#         dim=-2,
+#     )
+#     value_states = torch.cat(
+#         [
+#             self.value_cache[layer_idx][:, head_idx : head_idx + 1],
+#             value_states,
+#         ],
+#         dim=-2,
+#     )
+#     return key_states, value_states
