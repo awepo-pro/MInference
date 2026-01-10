@@ -18,7 +18,7 @@ def main() -> None:
         top_p=0.95,
         max_tokens=10,
     )
-    model_name = "./Llama-32-3B-tweets-10-adapt"
+    model_name = "./models--mlx-community--Llama-3.2-3B-Instruct"
     llm = LLM(
         model_name,
         max_num_seqs=1,
