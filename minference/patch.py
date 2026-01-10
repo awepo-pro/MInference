@@ -8,35 +8,35 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import transformers
-from torch.nn import CrossEntropyLoss
-from transformers.cache_utils import Cache, DynamicCache
-from transformers.models.llama.modeling_llama import (
-    BaseModelOutputWithPast,
-    CausalLMOutputWithPast,
-    LlamaAttention,
-    logger,
-)
+# from torch.nn import CrossEntropyLoss
+# from transformers.cache_utils import Cache, DynamicCache
+# from transformers.models.llama.modeling_llama import (
+#     BaseModelOutputWithPast,
+#     CausalLMOutputWithPast,
+#     LlamaAttention,
+#     logger,
+# )
 
 try:
     from transformers.models.llama.modeling_llama import LlamaFlashAttention2
 except:
     LlamaFlashAttention2 = None
 
-from .modules.forward import attn_forward, decoding_forwards, prefill_forwards
-from .modules.inf_llm import InfLLMGenerator, inf_llm_forward
-from .modules.kvcompression import (
-    method_to_cache_obj,
-    prepare_inputs_for_generation_kvcompression,
-)
-from .modules.minference_forward import (
-    gather_last_q_vertical_slash_topk_v4,
-    init_minference_parameters,
-    kvcompress_forward,
-    minference_forward,
-    minference_kv_cache_cpu_forward,
-)
-from .ops.streaming_kernel import stream_llm_forward
-from .utils import causal_model_forward, glm_forward, prepare_input, update_kwargs
+# from .modules.forward import attn_forward, decoding_forwards, prefill_forwards
+# from .modules.inf_llm import InfLLMGenerator, inf_llm_forward
+# from .modules.kvcompression import (
+#     method_to_cache_obj,
+#     prepare_inputs_for_generation_kvcompression,
+# )
+# from .modules.minference_forward import (
+#     gather_last_q_vertical_slash_topk_v4,
+#     init_minference_parameters,
+#     kvcompress_forward,
+#     minference_forward,
+#     minference_kv_cache_cpu_forward,
+# )
+# from .ops.streaming_kernel import stream_llm_forward
+# from .utils import causal_model_forward, glm_forward, prepare_input, update_kwargs
 
 KV_CACHE_CPU_DEVICE = "cpu"
 
@@ -457,394 +457,394 @@ def prepare_inputs_for_generation(
     return model_inputs
 
 
-def prepare_cache(method: str, config):
-    cache_obj: Cache = method_to_cache_obj[method]
+# def prepare_cache(method: str, config):
+#     cache_obj: Cache = method_to_cache_obj[method]
 
-    def _prepare_cache_for_generation(
-        self, generation_config, model_kwargs: Dict, *args, **kwargs
-    ) -> bool:
-        """
-        Prepares the cache for generation (if applicable), given `generate`'s paramaterization. If a cache is
-        instantiated, writes it to `model_kwargs`, under the name expected by the model.
-        """
-        config.num_layers = self.config.num_hidden_layers
-        model_kwargs["past_key_values"] = cache_obj(config)
+#     def _prepare_cache_for_generation(
+#         self, generation_config, model_kwargs: Dict, *args, **kwargs
+#     ) -> bool:
+#         """
+#         Prepares the cache for generation (if applicable), given `generate`'s paramaterization. If a cache is
+#         instantiated, writes it to `model_kwargs`, under the name expected by the model.
+#         """
+#         config.num_layers = self.config.num_hidden_layers
+#         model_kwargs["past_key_values"] = cache_obj(config)
 
-    return _prepare_cache_for_generation
-
-
-def _prepare_decoder_attention_mask_inference(
-    self, attention_mask, input_shape, inputs_embeds, past_key_values_length
-):
-    # [bsz, seq_len]
-    if past_key_values_length > 0 and attention_mask is not None:
-        attention_mask = torch.cat(
-            (
-                torch.full(
-                    (input_shape[0], past_key_values_length),
-                    True,
-                    dtype=attention_mask.dtype,
-                    device=attention_mask.device,
-                ),
-                attention_mask,
-            ),
-            dim=-1,
-        )
-
-    if attention_mask is not None and torch.all(attention_mask):
-        return None  # This uses the faster call when training with full samples
-
-    return attention_mask
+#     return _prepare_cache_for_generation
 
 
-def forward_llama_decoder_layer(
-    self,
-    hidden_states: torch.Tensor,
-    attention_mask: Optional[torch.Tensor] = None,
-    position_ids: Optional[torch.LongTensor] = None,
-    past_key_value: Optional[Cache] = None,
-    output_attentions: Optional[bool] = False,
-    use_cache: Optional[bool] = False,
-    cache_position: Optional[torch.LongTensor] = None,
-    position_embeddings: Optional[
-        Tuple[torch.Tensor, torch.Tensor]
-    ] = None,  # necessary, but kept here for BC
-    chunk_size: int = 96_000,
-    **kwargs,
-) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
-    residual = hidden_states.clone()
-    batch, seq_len, embed_dim = hidden_states.shape
-    if chunk_size == -1:
-        chunk_size = seq_len
+# def _prepare_decoder_attention_mask_inference(
+#     self, attention_mask, input_shape, inputs_embeds, past_key_values_length
+# ):
+#     # [bsz, seq_len]
+#     if past_key_values_length > 0 and attention_mask is not None:
+#         attention_mask = torch.cat(
+#             (
+#                 torch.full(
+#                     (input_shape[0], past_key_values_length),
+#                     True,
+#                     dtype=attention_mask.dtype,
+#                     device=attention_mask.device,
+#                 ),
+#                 attention_mask,
+#             ),
+#             dim=-1,
+#         )
 
-    for start_idx in range(0, seq_len, chunk_size):
-        end_idx = min(seq_len, start_idx + chunk_size)
-        hidden_states[:, start_idx:end_idx, :] = self.input_layernorm(
-            hidden_states[:, start_idx:end_idx, :]
-        )
+#     if attention_mask is not None and torch.all(attention_mask):
+#         return None  # This uses the faster call when training with full samples
 
-    # Self Attention
-    attention_outputs = self.self_attn(
-        hidden_states=hidden_states,
-        attention_mask=attention_mask,
-        position_ids=position_ids,
-        past_key_value=past_key_value,
-        output_attentions=output_attentions,
-        use_cache=use_cache,
-        cache_position=cache_position,
-        position_embeddings=position_embeddings,
-        **kwargs,
-    )
-    hidden_states, self_attn_weights = attention_outputs[:2]
-    if residual.device != hidden_states.device:
-        residual = residual.to(hidden_states.device)
-    hidden_states = residual + hidden_states
-
-    # Fully Connected
-    for start_idx in range(0, seq_len, chunk_size):
-        end_idx = min(seq_len, start_idx + chunk_size)
-        part_hidden_states = hidden_states[:, start_idx:end_idx, :].clone()
-        part_hidden_states = self.post_attention_layernorm(part_hidden_states)
-        part_hidden_states = self.mlp(part_hidden_states)
-        hidden_states[:, start_idx:end_idx, :] += part_hidden_states
-
-    outputs = (hidden_states,)
-    if output_attentions:
-        outputs += (self_attn_weights,)
-
-    if use_cache and len(attention_outputs) == 3:
-        outputs += (attention_outputs[-1],)
-
-    return outputs
+#     return attention_mask
 
 
-def forward_llama_model(
-    self,
-    input_ids: torch.LongTensor = None,
-    attention_mask: Optional[torch.Tensor] = None,
-    position_ids: Optional[torch.LongTensor] = None,
-    past_key_values: Optional[List[torch.FloatTensor]] = None,
-    inputs_embeds: Optional[torch.FloatTensor] = None,
-    use_cache: Optional[bool] = None,
-    output_attentions: Optional[bool] = None,
-    output_hidden_states: Optional[bool] = None,
-    return_dict: Optional[bool] = None,
-) -> Union[Tuple, BaseModelOutputWithPast]:
-    output_attentions = (
-        output_attentions
-        if output_attentions is not None
-        else self.config.output_attentions
-    )
-    output_hidden_states = (
-        output_hidden_states
-        if output_hidden_states is not None
-        else self.config.output_hidden_states
-    )
-    use_cache = use_cache if use_cache is not None else self.config.use_cache
+# def forward_llama_decoder_layer(
+#     self,
+#     hidden_states: torch.Tensor,
+#     attention_mask: Optional[torch.Tensor] = None,
+#     position_ids: Optional[torch.LongTensor] = None,
+#     past_key_value: Optional[Cache] = None,
+#     output_attentions: Optional[bool] = False,
+#     use_cache: Optional[bool] = False,
+#     cache_position: Optional[torch.LongTensor] = None,
+#     position_embeddings: Optional[
+#         Tuple[torch.Tensor, torch.Tensor]
+#     ] = None,  # necessary, but kept here for BC
+#     chunk_size: int = 96_000,
+#     **kwargs,
+# ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+#     residual = hidden_states.clone()
+#     batch, seq_len, embed_dim = hidden_states.shape
+#     if chunk_size == -1:
+#         chunk_size = seq_len
 
-    return_dict = (
-        return_dict if return_dict is not None else self.config.use_return_dict
-    )
+#     for start_idx in range(0, seq_len, chunk_size):
+#         end_idx = min(seq_len, start_idx + chunk_size)
+#         hidden_states[:, start_idx:end_idx, :] = self.input_layernorm(
+#             hidden_states[:, start_idx:end_idx, :]
+#         )
 
-    # retrieve input_ids and inputs_embeds
-    if input_ids is not None and inputs_embeds is not None:
-        raise ValueError(
-            "You cannot specify both input_ids and inputs_embeds at the same time"
-        )
-    elif input_ids is not None:
-        batch_size, seq_length = input_ids.shape[:2]
-    elif inputs_embeds is not None:
-        batch_size, seq_length = inputs_embeds.shape[:2]
-    else:
-        raise ValueError("You have to specify either input_ids or inputs_embeds")
+#     # Self Attention
+#     attention_outputs = self.self_attn(
+#         hidden_states=hidden_states,
+#         attention_mask=attention_mask,
+#         position_ids=position_ids,
+#         past_key_value=past_key_value,
+#         output_attentions=output_attentions,
+#         use_cache=use_cache,
+#         cache_position=cache_position,
+#         position_embeddings=position_embeddings,
+#         **kwargs,
+#     )
+#     hidden_states, self_attn_weights = attention_outputs[:2]
+#     if residual.device != hidden_states.device:
+#         residual = residual.to(hidden_states.device)
+#     hidden_states = residual + hidden_states
 
-    if self.gradient_checkpointing and self.training:
-        if use_cache:
-            logger.warning_once(
-                "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
-            )
-            use_cache = False
+#     # Fully Connected
+#     for start_idx in range(0, seq_len, chunk_size):
+#         end_idx = min(seq_len, start_idx + chunk_size)
+#         part_hidden_states = hidden_states[:, start_idx:end_idx, :].clone()
+#         part_hidden_states = self.post_attention_layernorm(part_hidden_states)
+#         part_hidden_states = self.mlp(part_hidden_states)
+#         hidden_states[:, start_idx:end_idx, :] += part_hidden_states
 
-    seq_length_with_past = seq_length
-    past_key_values_length = 0
+#     outputs = (hidden_states,)
+#     if output_attentions:
+#         outputs += (self_attn_weights,)
 
-    if use_cache:
-        use_legacy_cache = not isinstance(past_key_values, Cache)
-        if use_legacy_cache:
-            past_key_values = DynamicCache.from_legacy_cache(past_key_values)
-        past_key_values_length = past_key_values.get_usable_length(seq_length)
-        seq_length_with_past = seq_length_with_past + past_key_values_length
+#     if use_cache and len(attention_outputs) == 3:
+#         outputs += (attention_outputs[-1],)
 
-    if position_ids is None:
-        device = input_ids.device if input_ids is not None else inputs_embeds.device
-        position_ids = torch.arange(
-            past_key_values_length,
-            seq_length + past_key_values_length,
-            dtype=torch.long,
-            device=device,
-        )
-        position_ids = position_ids.unsqueeze(0)
-
-    if inputs_embeds is None:
-        inputs_embeds = self.embed_tokens(input_ids)
-
-    if attention_mask is None:
-        attention_mask = torch.ones(
-            (batch_size, seq_length_with_past),
-            dtype=torch.bool,
-            device=inputs_embeds.device,
-        )
-        padding_mask = None
-    else:
-        if 0 in attention_mask:
-            padding_mask = attention_mask
-        else:
-            padding_mask = None
-
-    attention_mask = self._prepare_decoder_attention_mask(
-        attention_mask, (batch_size, seq_length), inputs_embeds, past_key_values_length
-    )
-
-    # embed positions
-    hidden_states = inputs_embeds
-
-    # decoder layers
-    all_hidden_states = () if output_hidden_states else None
-    all_self_attns = () if output_attentions else None
-    next_decoder_cache = None
-
-    for decoder_layer in self.layers:
-        if output_hidden_states:
-            all_hidden_states += (hidden_states,)
-
-        if self.gradient_checkpointing and self.training:
-            layer_outputs = self._gradient_checkpointing_func(
-                decoder_layer.__call__,
-                hidden_states,
-                attention_mask,
-                position_ids,
-                past_key_values,
-                output_attentions,
-                use_cache,
-            )
-        else:
-            layer_outputs = decoder_layer(
-                hidden_states,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
-                past_key_value=past_key_values,
-                output_attentions=output_attentions,
-                use_cache=use_cache,
-            )
-
-        hidden_states = layer_outputs[0]
-
-        if use_cache:
-            next_decoder_cache = layer_outputs[2 if output_attentions else 1]
-
-        if output_attentions:
-            all_self_attns += (layer_outputs[1],)
-
-    batch, seq_len, embed_dim = hidden_states.shape
-    for start_idx in range(0, seq_len, 32000):
-        end_idx = min(seq_len, start_idx + 32000)
-        hidden_states[:, start_idx:end_idx, :] = self.norm(
-            hidden_states[:, start_idx:end_idx, :]
-        )
-
-    # add hidden states from the last decoder layer
-    if output_hidden_states:
-        all_hidden_states += (hidden_states,)
-
-    next_cache = None
-    if use_cache:
-        next_cache = (
-            next_decoder_cache.to_legacy_cache()
-            if use_legacy_cache
-            else next_decoder_cache
-        )
-    if not return_dict:
-        return tuple(
-            v
-            for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
-            if v is not None
-        )
-    return BaseModelOutputWithPast(
-        last_hidden_state=hidden_states,
-        past_key_values=next_cache,
-        hidden_states=all_hidden_states,
-        attentions=all_self_attns,
-    )
+#     return outputs
 
 
-def forward_llama_for_causal_lm(
-    self,
-    input_ids: torch.LongTensor = None,
-    attention_mask: Optional[torch.Tensor] = None,
-    position_ids: Optional[torch.LongTensor] = None,
-    past_key_values: Optional[List[torch.FloatTensor]] = None,
-    inputs_embeds: Optional[torch.FloatTensor] = None,
-    labels: Optional[torch.LongTensor] = None,
-    use_cache: Optional[bool] = None,
-    output_attentions: Optional[bool] = None,
-    output_hidden_states: Optional[bool] = None,
-    return_dict: Optional[bool] = None,
-    logits_to_keep: int = 1,
-) -> Union[Tuple, CausalLMOutputWithPast]:
-    # assert labels is not None
-    output_attentions = (
-        output_attentions
-        if output_attentions is not None
-        else self.config.output_attentions
-    )
-    output_hidden_states = (
-        output_hidden_states
-        if output_hidden_states is not None
-        else self.config.output_hidden_states
-    )
-    return_dict = (
-        return_dict if return_dict is not None else self.config.use_return_dict
-    )
+# def forward_llama_model(
+#     self,
+#     input_ids: torch.LongTensor = None,
+#     attention_mask: Optional[torch.Tensor] = None,
+#     position_ids: Optional[torch.LongTensor] = None,
+#     past_key_values: Optional[List[torch.FloatTensor]] = None,
+#     inputs_embeds: Optional[torch.FloatTensor] = None,
+#     use_cache: Optional[bool] = None,
+#     output_attentions: Optional[bool] = None,
+#     output_hidden_states: Optional[bool] = None,
+#     return_dict: Optional[bool] = None,
+# ) -> Union[Tuple, BaseModelOutputWithPast]:
+#     output_attentions = (
+#         output_attentions
+#         if output_attentions is not None
+#         else self.config.output_attentions
+#     )
+#     output_hidden_states = (
+#         output_hidden_states
+#         if output_hidden_states is not None
+#         else self.config.output_hidden_states
+#     )
+#     use_cache = use_cache if use_cache is not None else self.config.use_cache
 
-    # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
-    outputs = self.model(
-        input_ids=input_ids,
-        attention_mask=attention_mask,
-        position_ids=position_ids,
-        past_key_values=past_key_values,
-        inputs_embeds=inputs_embeds,
-        use_cache=use_cache,
-        output_attentions=output_attentions,
-        output_hidden_states=output_hidden_states,
-        return_dict=return_dict,
-    )
-    torch.cuda.empty_cache()
+#     return_dict = (
+#         return_dict if return_dict is not None else self.config.use_return_dict
+#     )
 
-    hidden_states = outputs[0]
-    if labels is not None:
-        loss_fct = CrossEntropyLoss(reduction="sum")
-        valid_seq_len = input_ids.shape[-1] - 1
-        valid_seq_len_slide_win = torch.sum(labels[:, 1:] >= 0).item()
-        # print("valid_seq_len_slide_win", valid_seq_len)
-        loss = 0.0
+#     # retrieve input_ids and inputs_embeds
+#     if input_ids is not None and inputs_embeds is not None:
+#         raise ValueError(
+#             "You cannot specify both input_ids and inputs_embeds at the same time"
+#         )
+#     elif input_ids is not None:
+#         batch_size, seq_length = input_ids.shape[:2]
+#     elif inputs_embeds is not None:
+#         batch_size, seq_length = inputs_embeds.shape[:2]
+#     else:
+#         raise ValueError("You have to specify either input_ids or inputs_embeds")
 
-        for start_idx in range(0, valid_seq_len, 32000):
-            end_idx = min(start_idx + 32000, valid_seq_len)
-            shift_logits = self.lm_head(
-                hidden_states[..., start_idx:end_idx, :]
-            ).float()
-            shift_labels = labels[..., start_idx + 1 : end_idx + 1].contiguous()
-            # Flatten the tokens
-            shift_logits = shift_logits.view(-1, self.config.vocab_size)
-            shift_labels = shift_labels.view(-1)
-            # Enable model parallelism
-            shift_labels = shift_labels.to(shift_logits.device)
-            loss += loss_fct(shift_logits, shift_labels)
+#     if self.gradient_checkpointing and self.training:
+#         if use_cache:
+#             logger.warning_once(
+#                 "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+#             )
+#             use_cache = False
 
-        loss /= valid_seq_len_slide_win
-        logits = None
-    else:
-        if self.config.to_dict().get("is_ppl", False):
-            logits = self.lm_head(hidden_states)
-        else:
-            logits = self.lm_head(hidden_states[:, -1:]).float()
-        loss = None
+#     seq_length_with_past = seq_length
+#     past_key_values_length = 0
 
-    return CausalLMOutputWithPast(
-        loss=loss,
-        logits=logits,
-        past_key_values=outputs.past_key_values,
-    )
+#     if use_cache:
+#         use_legacy_cache = not isinstance(past_key_values, Cache)
+#         if use_legacy_cache:
+#             past_key_values = DynamicCache.from_legacy_cache(past_key_values)
+#         past_key_values_length = past_key_values.get_usable_length(seq_length)
+#         seq_length_with_past = seq_length_with_past + past_key_values_length
+
+#     if position_ids is None:
+#         device = input_ids.device if input_ids is not None else inputs_embeds.device
+#         position_ids = torch.arange(
+#             past_key_values_length,
+#             seq_length + past_key_values_length,
+#             dtype=torch.long,
+#             device=device,
+#         )
+#         position_ids = position_ids.unsqueeze(0)
+
+#     if inputs_embeds is None:
+#         inputs_embeds = self.embed_tokens(input_ids)
+
+#     if attention_mask is None:
+#         attention_mask = torch.ones(
+#             (batch_size, seq_length_with_past),
+#             dtype=torch.bool,
+#             device=inputs_embeds.device,
+#         )
+#         padding_mask = None
+#     else:
+#         if 0 in attention_mask:
+#             padding_mask = attention_mask
+#         else:
+#             padding_mask = None
+
+#     attention_mask = self._prepare_decoder_attention_mask(
+#         attention_mask, (batch_size, seq_length), inputs_embeds, past_key_values_length
+#     )
+
+#     # embed positions
+#     hidden_states = inputs_embeds
+
+#     # decoder layers
+#     all_hidden_states = () if output_hidden_states else None
+#     all_self_attns = () if output_attentions else None
+#     next_decoder_cache = None
+
+#     for decoder_layer in self.layers:
+#         if output_hidden_states:
+#             all_hidden_states += (hidden_states,)
+
+#         if self.gradient_checkpointing and self.training:
+#             layer_outputs = self._gradient_checkpointing_func(
+#                 decoder_layer.__call__,
+#                 hidden_states,
+#                 attention_mask,
+#                 position_ids,
+#                 past_key_values,
+#                 output_attentions,
+#                 use_cache,
+#             )
+#         else:
+#             layer_outputs = decoder_layer(
+#                 hidden_states,
+#                 attention_mask=attention_mask,
+#                 position_ids=position_ids,
+#                 past_key_value=past_key_values,
+#                 output_attentions=output_attentions,
+#                 use_cache=use_cache,
+#             )
+
+#         hidden_states = layer_outputs[0]
+
+#         if use_cache:
+#             next_decoder_cache = layer_outputs[2 if output_attentions else 1]
+
+#         if output_attentions:
+#             all_self_attns += (layer_outputs[1],)
+
+#     batch, seq_len, embed_dim = hidden_states.shape
+#     for start_idx in range(0, seq_len, 32000):
+#         end_idx = min(seq_len, start_idx + 32000)
+#         hidden_states[:, start_idx:end_idx, :] = self.norm(
+#             hidden_states[:, start_idx:end_idx, :]
+#         )
+
+#     # add hidden states from the last decoder layer
+#     if output_hidden_states:
+#         all_hidden_states += (hidden_states,)
+
+#     next_cache = None
+#     if use_cache:
+#         next_cache = (
+#             next_decoder_cache.to_legacy_cache()
+#             if use_legacy_cache
+#             else next_decoder_cache
+#         )
+#     if not return_dict:
+#         return tuple(
+#             v
+#             for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
+#             if v is not None
+#         )
+#     return BaseModelOutputWithPast(
+#         last_hidden_state=hidden_states,
+#         past_key_values=next_cache,
+#         hidden_states=all_hidden_states,
+#         attentions=all_self_attns,
+#     )
 
 
-def patch_glm_4_1m(model, config):
-    Attention = model.transformer.encoder.layers[0].self_attention.__class__
-    Transformer = model.transformer.encoder.__class__
+# def forward_llama_for_causal_lm(
+#     self,
+#     input_ids: torch.LongTensor = None,
+#     attention_mask: Optional[torch.Tensor] = None,
+#     position_ids: Optional[torch.LongTensor] = None,
+#     past_key_values: Optional[List[torch.FloatTensor]] = None,
+#     inputs_embeds: Optional[torch.FloatTensor] = None,
+#     labels: Optional[torch.LongTensor] = None,
+#     use_cache: Optional[bool] = None,
+#     output_attentions: Optional[bool] = None,
+#     output_hidden_states: Optional[bool] = None,
+#     return_dict: Optional[bool] = None,
+#     logits_to_keep: int = 1,
+# ) -> Union[Tuple, CausalLMOutputWithPast]:
+#     # assert labels is not None
+#     output_attentions = (
+#         output_attentions
+#         if output_attentions is not None
+#         else self.config.output_attentions
+#     )
+#     output_hidden_states = (
+#         output_hidden_states
+#         if output_hidden_states is not None
+#         else self.config.output_hidden_states
+#     )
+#     return_dict = (
+#         return_dict if return_dict is not None else self.config.use_return_dict
+#     )
 
-    prefill_forward = prefill_forwards[config.attn_type]
-    decoding_forward = decoding_forwards[config.kv_type]
+#     # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
+#     outputs = self.model(
+#         input_ids=input_ids,
+#         attention_mask=attention_mask,
+#         position_ids=position_ids,
+#         past_key_values=past_key_values,
+#         inputs_embeds=inputs_embeds,
+#         use_cache=use_cache,
+#         output_attentions=output_attentions,
+#         output_hidden_states=output_hidden_states,
+#         return_dict=return_dict,
+#     )
+#     torch.cuda.empty_cache()
 
-    attn_forward = glm_forward(
-        prefill_forward=prefill_forward,
-        decoding_forward=decoding_forward,
-        attn_forward_config=config.attn_kwargs,
-        class_name="attn_forward",
-    )
-    transformer_forward = glm_forward(
-        prefill_forward=None,
-        decoding_forward=None,
-        attn_forward_config=None,
-        class_name="transformer_forward",
-    )
+#     hidden_states = outputs[0]
+#     if labels is not None:
+#         loss_fct = CrossEntropyLoss(reduction="sum")
+#         valid_seq_len = input_ids.shape[-1] - 1
+#         valid_seq_len_slide_win = torch.sum(labels[:, 1:] >= 0).item()
+#         # print("valid_seq_len_slide_win", valid_seq_len)
+#         loss = 0.0
 
-    def update_module(m):
-        if isinstance(m, Attention):
-            m.forward = (
-                lambda self, *args, **kwargs: attn_forward(self, *args, **kwargs)
-            ).__get__(m, Attention)
-        if isinstance(m, Transformer):
-            m.forward = (
-                lambda self, *args, **kwargs: transformer_forward(self, *args, **kwargs)
-            ).__get__(m, Transformer)
+#         for start_idx in range(0, valid_seq_len, 32000):
+#             end_idx = min(start_idx + 32000, valid_seq_len)
+#             shift_logits = self.lm_head(
+#                 hidden_states[..., start_idx:end_idx, :]
+#             ).float()
+#             shift_labels = labels[..., start_idx + 1 : end_idx + 1].contiguous()
+#             # Flatten the tokens
+#             shift_logits = shift_logits.view(-1, self.config.vocab_size)
+#             shift_labels = shift_labels.view(-1)
+#             # Enable model parallelism
+#             shift_labels = shift_labels.to(shift_logits.device)
+#             loss += loss_fct(shift_logits, shift_labels)
 
-    model.apply(update_module)
-    prepare_cache_func = prepare_cache(config.kv_type, config)
-    model._prepare_cache_for_generation = prepare_cache_func.__get__(
-        model, model.__class__
-    )
-    model.prepare_inputs_for_generation = prepare_input.__get__(model, model.__class__)
-    model._update_model_kwargs_for_generation = update_kwargs.__get__(
-        model, model.__class__
-    )
-    model.forward = causal_model_forward(model.forward).__get__(model, model.__class__)
-    prepare_inputs_func = prepare_inputs_for_generation_kvcompression(
-        config.kv_type, config, model.prepare_inputs_for_generation
-    )
-    model.prepare_inputs_for_generation = prepare_inputs_func.__get__(
-        model, model.__class__
-    )
-    print(f"Patched model for {config.attn_type} with {config.kv_type} ..")
-    return model
+#         loss /= valid_seq_len_slide_win
+#         logits = None
+#     else:
+#         if self.config.to_dict().get("is_ppl", False):
+#             logits = self.lm_head(hidden_states)
+#         else:
+#             logits = self.lm_head(hidden_states[:, -1:]).float()
+#         loss = None
+
+#     return CausalLMOutputWithPast(
+#         loss=loss,
+#         logits=logits,
+#         past_key_values=outputs.past_key_values,
+#     )
+
+
+# def patch_glm_4_1m(model, config):
+#     Attention = model.transformer.encoder.layers[0].self_attention.__class__
+#     Transformer = model.transformer.encoder.__class__
+
+#     prefill_forward = prefill_forwards[config.attn_type]
+#     decoding_forward = decoding_forwards[config.kv_type]
+
+#     attn_forward = glm_forward(
+#         prefill_forward=prefill_forward,
+#         decoding_forward=decoding_forward,
+#         attn_forward_config=config.attn_kwargs,
+#         class_name="attn_forward",
+#     )
+#     transformer_forward = glm_forward(
+#         prefill_forward=None,
+#         decoding_forward=None,
+#         attn_forward_config=None,
+#         class_name="transformer_forward",
+#     )
+
+#     def update_module(m):
+#         if isinstance(m, Attention):
+#             m.forward = (
+#                 lambda self, *args, **kwargs: attn_forward(self, *args, **kwargs)
+#             ).__get__(m, Attention)
+#         if isinstance(m, Transformer):
+#             m.forward = (
+#                 lambda self, *args, **kwargs: transformer_forward(self, *args, **kwargs)
+#             ).__get__(m, Transformer)
+
+#     model.apply(update_module)
+#     prepare_cache_func = prepare_cache(config.kv_type, config)
+#     model._prepare_cache_for_generation = prepare_cache_func.__get__(
+#         model, model.__class__
+#     )
+#     model.prepare_inputs_for_generation = prepare_input.__get__(model, model.__class__)
+#     model._update_model_kwargs_for_generation = update_kwargs.__get__(
+#         model, model.__class__
+#     )
+#     model.forward = causal_model_forward(model.forward).__get__(model, model.__class__)
+#     prepare_inputs_func = prepare_inputs_for_generation_kvcompression(
+#         config.kv_type, config, model.prepare_inputs_for_generation
+#     )
+#     model.prepare_inputs_for_generation = prepare_inputs_func.__get__(
+#         model, model.__class__
+#     )
+#     print(f"Patched model for {config.attn_type} with {config.kv_type} ..")
+#     return model
 
 
 # def new_patch(model, config):
@@ -1054,19 +1054,19 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
     import vllm
     from vllm.attention import Attention
     from vllm.forward_context import get_forward_context
-    from vllm.model_executor.models.chatglm import (
-        GLMAttention,
-        GLMBlock,
-        GLMTransformer,
-    )
-    from vllm.model_executor.models.llama import (
-        LlamaAttention,
-        LlamaDecoderLayer,
-        LlamaModel,
-    )
+    # from vllm.model_executor.models.chatglm import (
+    #     GLMAttention,
+    #     GLMBlock,
+    #     GLMTransformer,
+    # )
+    # from vllm.model_executor.models.llama import (
+    #     LlamaAttention,
+    #     LlamaDecoderLayer,
+    #     LlamaModel,
+    # )
 
     from minference.modules.minference_forward import (
-        gather_last_q_vertical_slash_topk_vllm,
+        block_sparse_topk_vllm,
         minference_vllm_forward,
     )
 
@@ -1104,10 +1104,9 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         if self.kv_cache:
             print('have kv cache managed by vllm!')
         
-        raise Exception('not impl')
         self_kv_cache = self.kv_cache[forward_context.virtual_engine]
 
-        # * self.impl is attention backend, read vllm.Attention for more details
+        # * self.impl is attention backend, read vllm.Attention for more details, it also is replaced by attn_forward (minference_vllm_forward) in update_modules
         return self.impl.forward(
             self,
             query,
@@ -1122,162 +1121,164 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         # kv_scale = getattr(self, "_kv_scale", getattr(self, "_k_scale", kv_scale))
         # return self.impl.forward(query, key, value, layer_idx)
 
-    def llama_model_forward_vllm(
-        self,
-        input_ids: Optional[torch.Tensor],
-        positions: torch.Tensor,
-        intermediate_tensors,
-        inputs_embeds: Optional[torch.Tensor] = None,
-    ) -> torch.Tensor:
-        if inputs_embeds is not None:
-            hidden_states = inputs_embeds
-        else:
-            hidden_states = self.get_input_embeddings(input_ids)
-        residual = None
-        for i in range(len(self.layers)):
-            layer = self.layers[i]
-            hidden_states, residual = layer(positions, hidden_states, residual, i)
-        hidden_states, _ = self.norm(hidden_states, residual)
-        return hidden_states
+    # def llama_model_forward_vllm(
+    #     self,
+    #     input_ids: Optional[torch.Tensor],
+    #     positions: torch.Tensor,
+    #     intermediate_tensors,
+    #     inputs_embeds: Optional[torch.Tensor] = None,
+    # ) -> torch.Tensor:
+    #     if inputs_embeds is not None:
+    #         hidden_states = inputs_embeds
+    #     else:
+    #         hidden_states = self.get_input_embeddings(input_ids)
+    #     residual = None
+    #     for i in range(len(self.layers)):
+    #         layer = self.layers[i]
+    #         hidden_states, residual = layer(positions, hidden_states, residual, i)
+    #     hidden_states, _ = self.norm(hidden_states, residual)
+    #     return hidden_states
 
-    def chatglm_model_forward_vllm(
-        self,
-        hidden_states: torch.Tensor,
-        position_ids: torch.Tensor,
-        kv_caches: List[torch.Tensor],
-        attn_metadata,
-    ) -> torch.Tensor:
-        for i in range(self.num_layers):
-            layer = self.layers[i]
-            hidden_states = layer(
-                hidden_states=hidden_states,
-                position_ids=position_ids,
-                kv_cache=kv_caches[i],
-                attn_metadata=attn_metadata,
-                layer_idx=i,
-            )
-        # Final layer norm.
-        if self.post_layer_norm:
-            hidden_states = self.final_layernorm(hidden_states)
+    # def chatglm_model_forward_vllm(
+    #     self,
+    #     hidden_states: torch.Tensor,
+    #     position_ids: torch.Tensor,
+    #     kv_caches: List[torch.Tensor],
+    #     attn_metadata,
+    # ) -> torch.Tensor:
+    #     for i in range(self.num_layers):
+    #         layer = self.layers[i]
+    #         hidden_states = layer(
+    #             hidden_states=hidden_states,
+    #             position_ids=position_ids,
+    #             kv_cache=kv_caches[i],
+    #             attn_metadata=attn_metadata,
+    #             layer_idx=i,
+    #         )
+    #     # Final layer norm.
+    #     if self.post_layer_norm:
+    #         hidden_states = self.final_layernorm(hidden_states)
 
-        return hidden_states
+    #     return hidden_states
 
-    def llama_layer_forward_vllm(
-        self,
-        positions: torch.Tensor,
-        hidden_states: torch.Tensor,
-        residual: Optional[torch.Tensor],
-        layer_idx: int,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # Self Attention
-        if residual is None:
-            residual = hidden_states
-            hidden_states = self.input_layernorm(hidden_states)
-        else:
-            hidden_states, residual = self.input_layernorm(hidden_states, residual)
-        hidden_states = self.self_attn(
-            positions=positions,
-            hidden_states=hidden_states,
-            layer_idx=layer_idx,
-        )
+    # def llama_layer_forward_vllm(
+    #     self,
+    #     positions: torch.Tensor,
+    #     hidden_states: torch.Tensor,
+    #     residual: Optional[torch.Tensor],
+    #     layer_idx: int,
+    # ) -> Tuple[torch.Tensor, torch.Tensor]:
+    #     # Self Attention
+    #     if residual is None:
+    #         residual = hidden_states
+    #         hidden_states = self.input_layernorm(hidden_states)
+    #     else:
+    #         hidden_states, residual = self.input_layernorm(hidden_states, residual)
+    #     hidden_states = self.self_attn(
+    #         positions=positions,
+    #         hidden_states=hidden_states,
+    #         layer_idx=layer_idx,
+    #     )
 
-        # Fully Connected
-        hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
-        hidden_states = self.mlp(hidden_states)
-        return hidden_states, residual
+    #     # Fully Connected
+    #     hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
+    #     hidden_states = self.mlp(hidden_states)
+    #     return hidden_states, residual
 
-    def chatglm_layer_forward_vllm(
-        self,
-        hidden_states: torch.Tensor,
-        position_ids: torch.Tensor,
-        kv_cache: torch.Tensor,
-        attn_metadata,
-        layer_idx=0,
-    ) -> torch.Tensor:
-        # hidden_states: [num_tokens, h]
-        # Layer norm at the beginning of the transformer layer.
-        layernorm_output = self.input_layernorm(hidden_states)
-        # Self attention.
-        attention_output = self.self_attention(
-            hidden_states=layernorm_output,
-            position_ids=position_ids,
-            kv_cache=kv_cache,
-            attn_metadata=attn_metadata,
-            layer_idx=layer_idx,
-        )
+    # def chatglm_layer_forward_vllm(
+    #     self,
+    #     hidden_states: torch.Tensor,
+    #     position_ids: torch.Tensor,
+    #     kv_cache: torch.Tensor,
+    #     attn_metadata,
+    #     layer_idx=0,
+    # ) -> torch.Tensor:
+    #     # hidden_states: [num_tokens, h]
+    #     # Layer norm at the beginning of the transformer layer.
+    #     layernorm_output = self.input_layernorm(hidden_states)
+    #     # Self attention.
+    #     attention_output = self.self_attention(
+    #         hidden_states=layernorm_output,
+    #         position_ids=position_ids,
+    #         kv_cache=kv_cache,
+    #         attn_metadata=attn_metadata,
+    #         layer_idx=layer_idx,
+    #     )
 
-        # Residual connection.
-        if self.apply_residual_connection_post_layernorm:
-            residual = layernorm_output
-        else:
-            residual = hidden_states
-        layernorm_input = residual + attention_output
-        # Layer norm post the self attention.
-        layernorm_output = self.post_attention_layernorm(layernorm_input)
-        # Second residual connection.
-        if self.apply_residual_connection_post_layernorm:
-            residual = layernorm_output
-        else:
-            residual = layernorm_input
-        output = self.mlp(layernorm_output) + residual
-        return output
+    #     # Residual connection.
+    #     if self.apply_residual_connection_post_layernorm:
+    #         residual = layernorm_output
+    #     else:
+    #         residual = hidden_states
+    #     layernorm_input = residual + attention_output
+    #     # Layer norm post the self attention.
+    #     layernorm_output = self.post_attention_layernorm(layernorm_input)
+    #     # Second residual connection.
+    #     if self.apply_residual_connection_post_layernorm:
+    #         residual = layernorm_output
+    #     else:
+    #         residual = layernorm_input
+    #     output = self.mlp(layernorm_output) + residual
+    #     return output
 
-    def llama_attn_forward_vllm(
-        vllm_version: str = "0.4.2",
-    ):
-        def llama_attn_forward_vllm(
-            self,
-            positions: torch.Tensor,
-            hidden_states: torch.Tensor,
-            layer_idx: int,
-        ) -> torch.Tensor:
-            qkv, _ = self.qkv_proj(hidden_states)
-            q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
-            q, k = self.rotary_emb(positions, q, k)
-            if "0.4.1" <= vllm_version <= "0.4.2":
-                attn_output = self.attn(
-                    q, k, v, kv_cache, attn_metadata, self.kv_scale, layer_idx
-                )
-            elif vllm_version >= "0.8.0":
-                attn_output = self.attn(q, k, v, layer_idx=layer_idx)
-            elif vllm_version >= "0.4.3":
-                attn_output = self.attn(
-                    q, k, v, kv_cache, attn_metadata, layer_idx=layer_idx
-                )
-            else:
-                assert (
-                    False
-                ), "Only support 'vllm>=0.4.1'. Please update your vllm version."
+    # def llama_attn_forward_vllm(
+    #     vllm_version: str = "0.4.2",
+    # ):
+    #     def llama_attn_forward_vllm(
+    #         self,
+    #         positions: torch.Tensor,
+    #         hidden_states: torch.Tensor,
+    #         layer_idx: int,
+    #     ) -> torch.Tensor:
+    #         qkv, _ = self.qkv_proj(hidden_states)
+    #         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+    #         q, k = self.rotary_emb(positions, q, k)
+    #         if "0.4.1" <= vllm_version <= "0.4.2":
+    #             attn_output = self.attn(
+    #                 q, k, v, kv_cache, attn_metadata, self.kv_scale, layer_idx
+    #             )
+    #         elif vllm_version >= "0.8.0":
+    #             attn_output = self.attn(q, k, v, layer_idx=layer_idx)
+    #         elif vllm_version >= "0.4.3":
+    #             attn_output = self.attn(
+    #                 q, k, v, kv_cache, attn_metadata, layer_idx=layer_idx
+    #             )
+    #         else:
+    #             assert (
+    #                 False
+    #             ), "Only support 'vllm>=0.4.1'. Please update your vllm version."
 
-            output, _ = self.o_proj(attn_output)
-            return output
+    #         output, _ = self.o_proj(attn_output)
+    #         return output
 
-        return llama_attn_forward_vllm
+    #     return llama_attn_forward_vllm
 
-    def chatglm_attn_forward_vllm(
-        self,
-        hidden_states: torch.Tensor,
-        position_ids: torch.Tensor,
-        kv_cache: torch.Tensor,
-        attn_metadata,
-        layer_idx: int = 0,
-    ) -> torch.Tensor:
-        qkv, _ = self.query_key_value(hidden_states)
-        q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
-        q, k = self.rotary_emb(position_ids, q, k)
-        context_layer = self.attn(
-            q,
-            k,
-            v,
-            kv_cache,
-            attn_metadata,
-            layer_idx=layer_idx,
-        )
-        attn_output, _ = self.dense(context_layer)
-        return attn_output
+    # def chatglm_attn_forward_vllm(
+    #     self,
+    #     hidden_states: torch.Tensor,
+    #     position_ids: torch.Tensor,
+    #     kv_cache: torch.Tensor,
+    #     attn_metadata,
+    #     layer_idx: int = 0,
+    # ) -> torch.Tensor:
+    #     qkv, _ = self.query_key_value(hidden_states)
+    #     q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+    #     q, k = self.rotary_emb(position_ids, q, k)
+    #     context_layer = self.attn(
+    #         q,
+    #         k,
+    #         v,
+    #         kv_cache,
+    #         attn_metadata,
+    #         layer_idx=layer_idx,
+    #     )
+    #     attn_output, _ = self.dense(context_layer)
+    #     return attn_output
 
     # * replace LLama, ChatGLM with minference's version (impl above)
     def update_module(m):
+        assert(isinstance(m, Attention))
+
         if isinstance(m, Attention):
             # * note: this is first assignment, replace forward() in Attention class with vllm_attn_forward()
             m.forward = vllm_attn_forward.__get__(m, Attention)
@@ -1287,27 +1288,27 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
             m_cls = m.__class__
 
             # * this method might not originally in the backend class, however we could still init a new one
-            m.gather_last_q_vertical_slash_topk_vllm = (
-                gather_last_q_vertical_slash_topk_vllm.__get__(m, m_cls)
+            m.block_sparse_topk_vllm = (
+                block_sparse_topk_vllm.__get__(m, m_cls)
             )
             # * note: this is second assignment, m is not Attnetion class anymore, instead, it is one backend (read vllm_attn_forward) class.
             # * above backend might not support block-sparse attention yet.
 
-            # * in backend class, we first assign our new minference's `gather_last_q_vertical_slash_topk_vllm` kernel (it might not in backend class), then 
+            # * in backend class, we first assign our new minference's `block_sparse_topk_vllm` kernel (it might not in backend class), then 
             # * assign replace the forward() 
             m.forward = attn_forward.__get__(m, m_cls)
-        if isinstance(m, LlamaDecoderLayer):
-            m.forward = llama_layer_forward_vllm.__get__(m, LlamaDecoderLayer)
-        if isinstance(m, LlamaModel):
-            m.forward = llama_model_forward_vllm.__get__(m, LlamaModel)
-        if isinstance(m, LlamaAttention):
-            m.forward = llama_attn_forward_vllm(vllm_version).__get__(m, LlamaAttention)
-        if isinstance(m, GLMBlock):
-            m.forward = chatglm_layer_forward_vllm.__get__(m, GLMBlock)
-        if isinstance(m, GLMTransformer):
-            m.forward = chatglm_model_forward_vllm.__get__(m, GLMTransformer)
-        if isinstance(m, GLMAttention):
-            m.forward = chatglm_attn_forward_vllm.__get__(m, GLMAttention)
+        # if isinstance(m, LlamaDecoderLayer):
+        #     m.forward = llama_layer_forward_vllm.__get__(m, LlamaDecoderLayer)
+        # if isinstance(m, LlamaModel):
+        #     m.forward = llama_model_forward_vllm.__get__(m, LlamaModel)
+        # if isinstance(m, LlamaAttention):
+        #     m.forward = llama_attn_forward_vllm(vllm_version).__get__(m, LlamaAttention)
+        # if isinstance(m, GLMBlock):
+        #     m.forward = chatglm_layer_forward_vllm.__get__(m, GLMBlock)
+        # if isinstance(m, GLMTransformer):
+        #     m.forward = chatglm_model_forward_vllm.__get__(m, GLMTransformer)
+        # if isinstance(m, GLMAttention):
+        #     m.forward = chatglm_attn_forward_vllm.__get__(m, GLMAttention)
 
     # * minference_patch_vllm_executor return update_module method only. All above methods are helper for update_module
     return update_module

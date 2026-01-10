@@ -236,22 +236,22 @@ def attn_forward(
 
 prefill_forwards = {  # None = use flash attention
     "dense": None,
-    "a_shape": a_shape_kernel,
-    "tri_shape": tri_shape_kernel,
-    "minference": minference_prefill_forward,
-    "flexprefill": flexprefill_forward,
-    "xattention": xattention_forward,
-    "tri_mix": tri_mix_forward,
-    "tri_mix_minference": tri_mix_minference_forward,
+    # "a_shape": a_shape_kernel,
+    # "tri_shape": tri_shape_kernel,
+    # "minference": minference_prefill_forward,
+    # "flexprefill": flexprefill_forward,
+    # "xattention": xattention_forward,
+    # "tri_mix": tri_mix_forward,
+    # "tri_mix_minference": tri_mix_minference_forward,
 }
 
 decoding_forwards = {
     "dense": None,
-    "snapkv": None,
-    "pyramidkv": None,
-    "quest": quest_decode_kernel,
-    "streamingllm": None,
-    "retr_attn": retr_attn,
-    "kivi": kivi_forward,
-    "leank": leank_forward,
+    # "snapkv": None,
+    # "pyramidkv": None,
+    # "quest": quest_decode_kernel,
+    # "streamingllm": None,
+    # "retr_attn": retr_attn,
+    # "kivi": kivi_forward,
+    # "leank": leank_forward,
 }

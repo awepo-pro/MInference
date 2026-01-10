@@ -28,8 +28,9 @@ import triton.language as tl
 # )
 @triton.jit
 def _triton_block_sparse_attn_fwd_kernel(
-    Q, K, V, seqlens, sm_scale,
-    block_index,
+    Q, K, V,                            # * (b, h, seqlen, headdim)
+    seqlens, sm_scale,
+    block_index,                        # * (b, h, ceil_div(seqlen, block_size_M), topk=MAX_BLOCKS_PER_ROW)
     Out,
     stride_qz, stride_qh, stride_qm, stride_qk,
     stride_kz, stride_kh, stride_kn, stride_kk,
@@ -42,26 +43,45 @@ def _triton_block_sparse_attn_fwd_kernel(
     BLOCK_DMODEL: tl.constexpr,
     dtype: tl.constexpr,
 ):
+    # * ceil_div(seqlen, block_size_M), index of starting block
     start_m = tl.program_id(0)
+    # * b \times h
     off_hz = tl.program_id(1)
 
+    # * seqlen of corresponding batch
     seqlen = tl.load(seqlens + off_hz // H)
+    # * do nothing if padding
     if start_m * BLOCK_M >= seqlen:
         return
 
     # initialize offsets
+    # * we treat QKV as \in (b, h, seqlen // block_size_M, headdim)
+
+    # * start_m * block_M := starting position of current block (among seqlen // block_size_M)
+    # *     - 4 blocks in 1 head (seqlen = 128) -> 1st: [0, 32), 2nd: [32, 64), 3th: [64, 96), 4th: [96, 128)
+    # *     - now in 3th -> start * block_M = 64; +tl.arange(0, block_M) := [32, 64)
+
+    # * converted into list with `tl.arange` to get the exact location of each elements
     offs_m = start_m * BLOCK_M + tl.arange(0, BLOCK_M)
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
 
+    # * offset of batch and head
     qo_offset = (off_hz // H) * stride_qz + (off_hz % H) * stride_qh
     kv_offset = (off_hz // H) * stride_kz + (off_hz % H) * stride_kh
 
-    q_ptrs = Q + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
-    k_ptrs = K + kv_offset + offs_d[:, None] * stride_kk
-    v_ptrs = V + kv_offset + offs_d[None, :] * stride_vk
-    o_ptrs = Out + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
+    # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
+    # *     - Q might not contiguous tensor, stride is generalized method 
+    # *     - blocks_ptr is contiguous, might use size of stride to compute
 
+    # * start_point + batch_head_offset + block_offset + headdim_offset
+    q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
+    k_ptrs = K      + kv_offset                               + offs_d[:, None] * stride_kk
+    v_ptrs = V      + kv_offset                               + offs_d[None, :] * stride_vk
+    o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
+
+    # * NUM_ROWS := no. of rows in each block
+    # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
     blocks_ptr = block_index + (off_hz * NUM_ROWS + start_m) * MAX_BLOCKS_PRE_ROW
 
     # initialize pointer to m and l
@@ -73,6 +93,7 @@ def _triton_block_sparse_attn_fwd_kernel(
     # don't work as expected with `exp` in the loop
     qk_scale = sm_scale * 1.44269504
     # load q: it will stay in SRAM throughout
+    # * q_ptrs is a list, so load an array
     q = tl.load(q_ptrs)
     q = (q * qk_scale).to(dtype)
 
@@ -117,7 +138,7 @@ def _triton_block_sparse_attention(
     k,                 # [BATCH, N_HEADS, N_CTX, D_HEAD]
     v,                 # [BATCH, N_HEADS, N_CTX, D_HEAD]
     seqlens,           # [BATCH, ]
-    block_index,       # [BATCH, N_HEADS, cdiv(N_CTX, BLOCK_SIZE_M), MAX_BLOCKS_PRE_ROW]
+    block_index,       # [BATCH, N_HEADS, cdiv(N_CTX, BLOCK_SIZE_M), MAX_BLOCKS_PRE_ROW], MAX_BLOCKS_PER_ROW := min(topk, seqlen // block_size_N)
     sm_scale,
     block_size_M=64,
     block_size_N=64,
@@ -126,9 +147,11 @@ def _triton_block_sparse_attention(
     Lq, Lk, Lv = q.shape[-1], k.shape[-1], v.shape[-1]
     assert Lq == Lk and Lk == Lv
     assert Lk in {16, 32, 64, 128}
+
     o = torch.zeros_like(q)
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
+    
     _triton_block_sparse_attn_fwd_kernel[grid](
         q, k, v, seqlens, sm_scale,
         block_index,
@@ -148,6 +171,7 @@ def _triton_block_sparse_attention(
     return o
 
 
+# * https://claude.ai/share/5645c803-86b6-4458-8d34-c60422975833
 def _build_block_index(
     query: torch.Tensor,     # [BATCH, N_HEADS, N_CTX, D_HEAD]
     key: torch.Tensor,       # [BATCH, N_HEADS, N_CTX, D_HEAD]
@@ -156,13 +180,26 @@ def _build_block_index(
     block_size_N: int = 64,
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
+
+    # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
+    # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
+    # * it means compress seqlen into blocks by reduce them 
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
+
+    # * arange(end=query_pool.shape[-2]) := arange(seqlen // block_size_M) -> [0, 1, 2, ..., seqlen // block_size_M)
+    # * arange * block_size_M := starting position of each query block
     arange_M = torch.arange(query_pool.shape[-2], dtype=torch.int32, device=query.device) * block_size_M
     arange_N = torch.arange(key_pool.shape[-2], dtype=torch.int32, device=key.device) * block_size_N
+
     p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
+    # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
     top_k = min(top_k, context_size // block_size_N)
+    
+    # * find topk row by row,
+    # * topk.indices \in (b, h, m, topk), topk := scalar
+    # * indices.sort return (values, indices), since we sort the indices, so values = indices
     return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
 
 
@@ -171,8 +208,8 @@ def block_sparse_attention(
     key: torch.Tensor,    # [BATCH, N_HEADS, N_CTX, D_HEAD]
     value: torch.Tensor,  # [BATCH, N_HEADS, N_CTX, D_HEAD]
     top_k: int,
-    block_size_M: int = 64,
-    block_size_N: int = 64,
+    block_size_M: int = 64, # might change to 16 (follow vllm block size)
+    block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
     pad = block_size_M - (query.shape[2] & (block_size_M - 1))
@@ -182,5 +219,9 @@ def block_sparse_attention(
     seqlens = torch.tensor([context_size], dtype=torch.int32, device=query.device)
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index(query, key, top_k, block_size_N, block_size_N)
-    out = _triton_block_sparse_attention(query, key, value, seqlens, block_index, sm_scale, block_size_M, block_size_N)
+    out = _triton_block_sparse_attention(
+        query, key, value, seqlens, 
+        block_index, 
+        sm_scale,
+        block_size_M, block_size_N)
     return out[..., :context_size, :]
