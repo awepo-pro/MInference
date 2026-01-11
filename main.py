@@ -5,7 +5,11 @@ from vllm import LLM, SamplingParams
 
 from minference import MInference  # including MInference
 
+import os
+
 def main() -> None:
+    assert os.environ.get('VLLM_USE_V1') == '0', f'using v1, VLLM_USE_V1: {os.environ.get("VLLM_USE_V1")}'
+    assert os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING') == '0', f'using multiprocessing, VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING")}'
     prompts = [
         "Hello, my name is",
         "The president of the United States is",
@@ -20,10 +24,11 @@ def main() -> None:
     )
     model_name = "./models--mlx-community--Llama-3.2-3B-Instruct"
     llm = LLM(
-        model_name,
+        model=model_name,
         max_num_seqs=1,
         enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
-        max_model_len=128000,
+        dtype='float16',
+        max_model_len=12800,
     )
 
 # Patch MInference Module

@@ -1052,7 +1052,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
     from collections import defaultdict
 
     import vllm
-    from vllm.attention import Attention
+    from vllm.attention.layer import Attention
     from vllm.forward_context import get_forward_context
     # from vllm.model_executor.models.chatglm import (
     #     GLMAttention,
@@ -1277,7 +1277,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
 
     # * replace LLama, ChatGLM with minference's version (impl above)
     def update_module(m):
-        assert(isinstance(m, Attention))
+        assert isinstance(m, Attention), f'm is {type(m)}'
 
         if isinstance(m, Attention):
             # * note: this is first assignment, replace forward() in Attention class with vllm_attn_forward()
@@ -1328,7 +1328,6 @@ def minference_patch_vllm(
             patch_config=patch_config,
         )
     else:
-        raise Exception("not yet impl")
         llm.llm_engine.model_executor.driver_worker.model_runner.model.apply(
             # * same as minference_patch_vllm_tp is just a wrapper of minference_patch_vllm_executor
             minference_patch_vllm_executor(config_file, patch_config)

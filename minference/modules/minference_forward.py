@@ -6,6 +6,7 @@ import json
 import os
 import warnings
 from importlib import import_module
+import torch
 
 from transformers.models.llama.modeling_llama import rotate_half
 from transformers.utils import is_flash_attn_2_available
@@ -1384,7 +1385,7 @@ def minference_vllm_forward(
     #     # Reshape the output tensor.
     #     return output.view(num_tokens, hidden_size)
 
-    if vllm_version in "0.4.1":
+    if vllm_version in ["0.4.1", '0.13.0']:
         return forward
     # elif vllm_version == "0.4.2":
     #     return forward_vllm_042

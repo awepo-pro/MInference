@@ -20,5 +20,4 @@ test:
 	@${PYTHON} -m pytest -n 1 --dist=loadfile -s -v ./tests/
 
 run:
-	VLLM_WORKER_MULTIPROC_METHOD=spawn
-	${PYTHON} main.py 
+	VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} main.py 
