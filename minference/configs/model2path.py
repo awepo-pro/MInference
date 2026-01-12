@@ -3,8 +3,15 @@
 
 import os
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DUMMY_FILE = os.path.join(BASE_DIR, "DUMMY_FILE.json")
+
 MODEL2PATH = {
+    # * self-defined
+    "./models--mlx-community--Llama-3.2-3B-Instruct": DUMMY_FILE,
+    "./models--Qwen--Qwen2-0.5B": DUMMY_FILE,
+    
     "gradientai/Llama-3-8B-Instruct-262k": os.path.join(
         BASE_DIR, "Llama_3_8B_Instruct_262k_kv_out_v32_fit_o_best_pattern.json"
     ),

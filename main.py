@@ -22,7 +22,9 @@ def main() -> None:
         top_p=0.95,
         max_tokens=10,
     )
-    model_name = "./models--mlx-community--Llama-3.2-3B-Instruct"
+
+    model_name = "./models--Qwen--Qwen2-0.5B"
+    
     llm = LLM(
         model=model_name,
         max_num_seqs=1,
@@ -31,13 +33,13 @@ def main() -> None:
         max_model_len=12800,
     )
 
-# Patch MInference Module
-    minference_patch = MInference("vllm", model_name)
+    # Patch MInference Module
+    minference_patch = MInference("vllm_minference", model_name)
     llm = minference_patch(llm)
 
     outputs = llm.generate(prompts, sampling_params)
 
-# Print the outputs.
+    # Print the outputs.
     for output in outputs:
         prompt = output.prompt
         generated_text = output.outputs[0].text

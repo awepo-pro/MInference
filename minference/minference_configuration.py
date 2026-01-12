@@ -54,17 +54,23 @@ class MInferenceConfig:
         **kwargs,
     ):
         super(MInferenceConfig, self).__init__()
+        # * alias names
         attn_type, kv_type = self.update_config_type(attn_type, kv_type)
+
+        # * attn_type must in supported attn_type list
         assert (
             attn_type in self.MINFERENCE_ATTENTION_TYPES + self.OTHER_ATTENTION_TYPES
         ), f"The attn_type {attn_type} you specified is not supported."
+
+        # * kv_type must in supported KV_type list
         assert (
             kv_type in self.KV_TYPES
         ), f"The kv_type {kv_type} you specified is not supported."
-        print(
-            f"<---- MInference Config Detail ----> attn_type {attn_type}, kv_type {kv_type}"
-        )
+
+        print(f"<---- MInference Config Detail ----> attn_type {attn_type}, kv_type {kv_type}")
+
         self.attn_type = attn_type
+        # * if model is supported (official), link to default config file
         self.config_path = self.update_config_path(config_path, model_name)
         self.model_name = model_name
         self.is_search = is_search
@@ -78,18 +84,26 @@ class MInferenceConfig:
             "config_path": config_path,
             **attn_kwargs,
         }
+
+        assert kv_type != "leank", f'kv_type ({kv_type}) cannot be leank'
         if kv_type == "leank":
             model_name = model_name.split("/")[-1]
             self.leank_path = LEANKPATNS[model_name]
 
     def update_config_path(self, config_path: str = None, model_name: str = None):
+        # * auto redirect if supported model
         if self.attn_type in self.OTHER_ATTENTION_TYPES:
             return ""
+        
+        # * use own config  
         if config_path is not None:
             return config_path
+
+        # TODO: config is updated, update corresponding setting in codes
         assert (
             model_name in MODEL2PATH
         ), f"The model {model_name} you specified is not supported. You are welcome to add it and open a PR :)"
+
         return MODEL2PATH[model_name]
 
     def get(self, attr, default=None):
