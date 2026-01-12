@@ -841,7 +841,8 @@ def minference_vllm_forward(
     patch_config = {},
 ):
     assert not pattern_config, 'config must be empty, since DUMMY_FILE.json should be empty'
-    assert not patch_config, 'no patch config for vllm minference'
+    # * patch_config must contains something added by MInferenceConfig
+    # assert not patch_config, 'no patch config for vllm minference'
 
     def forward(
         self,
@@ -1231,8 +1232,8 @@ def minference_vllm_forward(
             shape = [num_tokens, num_heads * head_size]
         """
         # NOTE(woosuk): FlashAttention does not support FP8 KV cache.
-        self.patch_config = patch_config
-        self.best_pattern = {int(ii): jj for ii, jj in pattern_config[layer_idx].items()}
+        # self.patch_config = patch_config
+        # self.best_pattern = {int(ii): jj for ii, jj in pattern_config[layer_idx].items()}
 
         def repeat_kv(hidden_states, n_rep):
             sqlen, num_head, head_dim = hidden_states.shape
