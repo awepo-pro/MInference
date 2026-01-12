@@ -32,7 +32,7 @@ def main() -> None:
     )
 
 # Patch MInference Module
-    minference_patch = MInference("vllm", model_name)
+    minference_patch = MInference("vllm_minference", model_name)
     llm = minference_patch(llm)
 
     outputs = llm.generate(prompts, sampling_params)

@@ -40,7 +40,7 @@ if __name__ == "__main__":
     args.add_argument(
         "--model_name",
         type=str,
-        default="gradientai/Llama-3-8B-Instruct-Gradient-1048k",
+        default="./models--mlx-community--Llama-3.2-3B-Instruct",
     )
     args.add_argument(
         "--attn_type",
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     )
 
     llm = LLM(
-        model_name,
+        "./models--mlx-community--Llama-3.2-3B-Instruct",
         enforce_eager=True,
         max_model_len=args.context_window + 10_000,
         enable_chunked_prefill=False,

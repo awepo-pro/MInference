@@ -1277,7 +1277,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
 
     # * replace LLama, ChatGLM with minference's version (impl above)
     def update_module(m):
-        assert isinstance(m, Attention), f'm is {type(m)}'
+        # assert isinstance(m, Attention), f'm is {type(m)}'
 
         if isinstance(m, Attention):
             # * note: this is first assignment, replace forward() in Attention class with vllm_attn_forward()
@@ -1298,17 +1298,23 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
             # * assign replace the forward() 
             m.forward = attn_forward.__get__(m, m_cls)
         # if isinstance(m, LlamaDecoderLayer):
-        #     m.forward = llama_layer_forward_vllm.__get__(m, LlamaDecoderLayer)
+        #     # m.forward = llama_layer_forward_vllm.__get__(m, LlamaDecoderLayer)
+        #     print('llamadecoderlayer')
         # if isinstance(m, LlamaModel):
-        #     m.forward = llama_model_forward_vllm.__get__(m, LlamaModel)
+        #     # m.forward = llama_model_forward_vllm.__get__(m, LlamaModel)
+        #     print('llamamodel')
         # if isinstance(m, LlamaAttention):
-        #     m.forward = llama_attn_forward_vllm(vllm_version).__get__(m, LlamaAttention)
+        #     # m.forward = llama_attn_forward_vllm(vllm_version).__get__(m, LlamaAttention)
+        #     print('llamaattention')
         # if isinstance(m, GLMBlock):
-        #     m.forward = chatglm_layer_forward_vllm.__get__(m, GLMBlock)
+        #     # m.forward = chatglm_layer_forward_vllm.__get__(m, GLMBlock)
+        #     print('glmblock')
         # if isinstance(m, GLMTransformer):
-        #     m.forward = chatglm_model_forward_vllm.__get__(m, GLMTransformer)
+        #     # m.forward = chatglm_model_forward_vllm.__get__(m, GLMTransformer)
+        #     print('glmtransformer')
         # if isinstance(m, GLMAttention):
-        #     m.forward = chatglm_attn_forward_vllm.__get__(m, GLMAttention)
+        #     # m.forward = chatglm_attn_forward_vllm.__get__(m, GLMAttention)
+        #     print('glmattention')
 
     # * minference_patch_vllm_executor return update_module method only. All above methods are helper for update_module
     return update_module

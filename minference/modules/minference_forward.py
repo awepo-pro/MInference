@@ -7,6 +7,7 @@ import os
 import warnings
 from importlib import import_module
 import torch
+from typing import Optional
 
 from transformers.models.llama.modeling_llama import rotate_half
 from transformers.utils import is_flash_attn_2_available
