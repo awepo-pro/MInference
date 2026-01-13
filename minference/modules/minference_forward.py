@@ -25,7 +25,8 @@ if _is_package_available("vllm"):
 
         # * vllm/vllm_flash_attn, must built from source, ie. `uv pip install git+https://github.com/vllm-project/flash-attention`
         from vllm_flash_attn import flash_attn_varlen_func, flash_attn_with_kvcache
-    except:
+    except Exception as e:
+        print(e)
         raise Exception('flash attention is necessary for forward_vllm_080')
         import vllm
         vllm_version = vllm.__version__
@@ -923,13 +924,13 @@ def minference_vllm_forward(
         """Forward pass with FlashAttention and PagedAttention.
 
         Args:
-            query: shape = [total_num_tokens, num_heads * head_size]
-            key: shape = [total_num_tokens, num_kv_heads * head_size]
-            value: shape = [total_num_tokens, num_kv_heads * head_size]
+            query: shape = [seqlen, num_heads * head_size]
+            key: shape = [seqlen, num_kv_heads * head_size]
+            value: shape = [seqlen, num_kv_heads * head_size]
             kv_cache = [2, num_blocks, block_size * num_kv_heads * head_size]
             attn_metadata: Metadata for attention.
         Returns:
-            shape = [total_num_tokens, num_heads * head_size]
+            shape = [seqlen, num_heads * head_size]
         """
         # self.patch_config = patch_config
         # self.best_pattern = {int(ii): jj for ii, jj in pattern_config[layer_idx].items()}
