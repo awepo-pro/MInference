@@ -1092,6 +1092,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         # kv_cache: Optional[torch.Tensor] = None,
         # attn_metadata,
         # kv_scale: float = 1.0,
+        output_shape: Optional[torch.Size] = None,
         layer_idx: int = 0,
     ) -> torch.Tensor:
         output_shape = query.shape
@@ -1103,9 +1104,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         if isinstance(attn_metadata, dict):
             attn_metadata = attn_metadata[self.layer_name]
     
-        if self.kv_cache:
-            print('have kv cache managed by vllm!')
-        
+        # * kv_cache is stored inside vllm.attention.layer.Attention (see docstring)
         self_kv_cache = self.kv_cache[forward_context.virtual_engine]
 
         # * self.impl is attention backend, read vllm.Attention for more details, it also is replaced by attn_forward (minference_vllm_forward) in update_modules

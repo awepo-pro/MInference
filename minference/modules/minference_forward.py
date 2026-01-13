@@ -32,7 +32,7 @@ if _is_package_available("vllm"):
         if vllm_version < "0.4.1":
             warnings.warn("Only support 'vllm>=0.4.1'. Please update your vllm version.")
 
-from ..ops.block_sparse_flash_attention import block_sparse_attention
+from ..ops.block_sparse_flash_attention import block_sparse_attention, block_sparse_attention_with_kvcache
 from ..ops.pit_sparse_flash_attention_v2 import vertical_slash_sparse_attention
 # from ..ops.streaming_kernel import streaming_forward, streaming_forward2
 # from .flexprefill import flexprefill_forward
@@ -841,6 +841,65 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
 
     return block_sparse_kernel(q, k, v)
 
+# * it is an embed method in self.impl.forward
+def block_sparse_topk_vllm_with_kvcache(
+        self, 
+        q,                  # * (batch=1, #head=1, total_tokens, headdim) 
+        k, 
+        v,
+        head_id,            # * scalar
+        k_cache,            # * (#block, max_num_block_per_seq, #head, headdim)
+        v_cache,
+        cu_seqlens_q,       # * (#batch + 1)
+        max_seqlen_q,
+        cu_seqlens_k, 
+        max_seqlen_k,
+        block_tables        # * (#batch, max_num_block_per_seq)
+    ) -> torch.Tensor:
+    
+    # * q \in (batch=1, head=1, total_tokens, head_size)
+    head_dim = q.size(-1)
+    q_len = q.shape[2]
+    bsz = q.shape[0]        # * bsz should be 1
+    assert bsz == 1, f'bsz: {bsz} is not 1'
+
+    def block_sparse_kernel_with_kvcache(
+            q, k, v, 
+            head_id,
+            k_cache, v_cache,
+            cu_seqlens_q, max_seqlne_q,
+            cu_seqlens_k, max_seqlen_k,
+            block_tables,
+            top_k=100) -> torch.Tensor:
+        return block_sparse_attention_with_kvcache(
+            q, k, v,
+            head_id,
+            k_cache, v_cache,
+            cu_seqlens_q, max_seqlne_q,
+            cu_seqlens_k, max_seqlen_k,
+            block_tables,
+            top_k)
+
+    def dense(q, k, v):
+        return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
+
+    # * doecode phrase; sparse attention (might be more time-consuming, since N = 1 => O(3 * N ^ 2)) is useless, and standard attention kernel is already fast enough
+    if q_len == 1:
+        return dense(q, k, v)
+
+    return block_sparse_kernel_with_kvcache(
+        q,                  # * (batch=1, #head=1, total_tokens, headdim) 
+        k, 
+        v,
+        head_id,            # * scalar
+        k_cache,            # * (#block, max_num_block_per_seq, #head, headdim)
+        v_cache,
+        cu_seqlens_q,       # * (#batch + 1)
+        max_seqlen_q,
+        cu_seqlens_k, 
+        max_seqlen_k,
+        block_tables)        # * (#batch, max_num_block_per_seq)
+
 
 def minference_vllm_forward(
     pattern_config,
@@ -864,13 +923,13 @@ def minference_vllm_forward(
         """Forward pass with FlashAttention and PagedAttention.
 
         Args:
-            query: shape = [num_tokens, num_heads * head_size]
-            key: shape = [num_tokens, num_kv_heads * head_size]
-            value: shape = [num_tokens, num_kv_heads * head_size]
+            query: shape = [total_num_tokens, num_heads * head_size]
+            key: shape = [total_num_tokens, num_kv_heads * head_size]
+            value: shape = [total_num_tokens, num_kv_heads * head_size]
             kv_cache = [2, num_blocks, block_size * num_kv_heads * head_size]
             attn_metadata: Metadata for attention.
         Returns:
-            shape = [num_tokens, num_heads * head_size]
+            shape = [total_num_tokens, num_heads * head_size]
         """
         # self.patch_config = patch_config
         # self.best_pattern = {int(ii): jj for ii, jj in pattern_config[layer_idx].items()}
@@ -934,7 +993,7 @@ def minference_vllm_forward(
 
         num_tokens, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
-        # * q, k ,v \in (num_token, num_heads, head_size)
+        # * q, k, v \in (num_token, num_heads, head_size)
         query = query.view(-1, self.num_heads, self.head_size)
         key = key.view(-1, self.num_kv_heads, self.head_size)
         value = value.view(-1, self.num_kv_heads, self.head_size)
@@ -952,10 +1011,14 @@ def minference_vllm_forward(
                                                 attn_metadata.kv_cache_dtype,
                                                 kv_scale)
 
+        # * prefill tokens should be listed at front, decode token at last
         num_prefill_tokens = attn_metadata.num_prefill_tokens
         num_decode_tokens = attn_metadata.num_decode_tokens
         assert key.shape[0] == num_prefill_tokens + num_decode_tokens
         assert value.shape[0] == num_prefill_tokens + num_decode_tokens
+
+        print(num_prefill_tokens)
+        print(num_decode_tokens)
 
         output = torch.empty_like(query)
         # Query for decode. KV is not needed because it is already cached.
@@ -965,6 +1028,11 @@ def minference_vllm_forward(
         query = query[:num_prefill_tokens]
         key = key[:num_prefill_tokens]
         value = value[:num_prefill_tokens]
+
+        print(query.shape)
+        print(key.shape)
+        print(value.shape)
+        exit()
 
         assert query.shape[0] == num_prefill_tokens
         assert decode_query.shape[0] == num_decode_tokens
@@ -1260,21 +1328,17 @@ def minference_vllm_forward(
         
             
         def minference_prefill_kvcache_func(
-                q: torch.Tensor,                # * (#batch, seqlen, #head, headdim)
-                # k: torch.Tensor,              # * kv are cached in advanced
-                # v: torch.Tensor,
+                q: torch.Tensor,                # * (total_tokens, #head, headdim), ragged batching
+                k: torch.Tensor,              # * kv are cached in advanced, however, if len(k) == 1, we could do decode in this case
+                v: torch.Tensor,
                 k_cache: torch.Tensor,          # * (#block, max_num_block_per_seq, #head, headdim)
                 v_cache: torch.Tensor,
+                cu_seqlens_q: torch.Tensor,
+                max_seqlen_q: torch.Tensor,
+                cu_seqlens_k: torch.Tensor,
+                max_seqlen_k: torch.Tensor,
+                causal: bool,                   # * must be causal attention
                 block_tables: torch.Tensor,     # * (#batch, max_num_block_per_seq)
-                
-                # * Assume we have,
-                block_lens: torch.Tensor,        # * (#batch, ), the actual no. of blocks in each block_table (within block tables)
-
-                # cu_seqlens_q: torch.Tensor,
-                # max_seqlen_q: torch.Tensor,
-                # cu_seqlens_k: torch.Tensor,
-                # max_seqlen_k: torch.Tensor,
-                # causal: bool,                 # * must be causal attention
         ) -> torch.Tensor:
 
             assert k_cache.stride(-1) == 1, "k_cache must have contiguous last dimension"
@@ -1284,22 +1348,55 @@ def minference_vllm_forward(
             q = q.contiguous() if q.stride(-1) != 1 else q
             batch_size, seqlen, num_heads, head_dim = q.shape
 
-            k = torch.empty((batch_size, seqlen, num_heads, head_dim), dtype=k_cache.dtype, device=k_cache.device)
-            v = torch.empty((batch_size, seqlen, num_heads, head_dim), dtype=v_cache.dtype, device=v_cache.device)
+            # (seq_len, num_heads, head_size)
+            if q.size(-2) != k.size(-2):
+                k = repeat_kv(k, q.size(-2) // k.size(-2))
+                v = repeat_kv(v, q.size(-2) // v.size(-2))
 
-            # * get corresponding kv from cache 
-            # * Assume that n-th q in 1D corresponding to n-th block_tables in 1D
-            for index in range(q.shape[0]):
-                cache_index = block_tables[index, :block_lens[index]]
-                kt = k_cache[cache_index]        # * (num_block=block_lens[index], max_num_blck_per_seq, #head, headdim)
-                vt = v_cache[cache_index]       
+            output = torch.empty_like(q)
+            head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
 
-                # * reshape, -1 := seqlen; 
-                # * k and v are padded by paged kv_cache
-                k[index] = kt.reshape(-1, num_heads, head_dim)
-                v[index] = vt.reshape(-1, num_heads, head_dim)
-            
+            for head in range(q.size(-2)):
+                # * (seqlen, #head=1, headdim), unsqueeze(1) to make sure (#head=1) dimension doesn't disappear
+                q_head = q[:, head, :].unsqueeze(1)
+                k_head = k[:, head, :].unsqueeze(1)
+                v_head = v[:, head, :].unsqueeze(1)
+                
+
+                # (1, seq_len, num_heads, head_size)
+                # * (batch=1, seqlen, 1, headdim)
+                q_head = q_head[None, ...]
+                k_head = k_head[None, ...]
+                v_head = v_head[None, ...]
+
+                # * (1, 1, seqlen, headdim)
+                q_head = q_head.transpose(1, 2)
+                k_head = k_head.transpose(1, 2)
+                v_head = v_head.transpose(1, 2)
+
+                # * 1 head of kv cache
+                k_head_cache = k_cache[:, :, head, :]
+                v_head_cache = v_cache[:, :, head, :]
+
+                out = self.block_sparse_topk_vllm_with_kvcache(
+                    q_head, 
+                    k_head,
+                    v_head,
+                    head + head_idx_st,     # * since we pass whole q, k (without splitting batches), and block tables as well. passing extra metadata to parse them later
+                    k_head_cache,
+                    v_head_cache,
+                    cu_seqlens_q,
+                    max_seqlen_q,
+                    cu_seqlens_k, 
+                    max_seqlen_k,
+                    block_tables)
+
+                out = out.transpose(1, 2).squeeze(0).contiguous()
+                output[:, head:head+1, :] = out
+
             raise NotImplementedError('not yet impl')
+            return output
+            
 
         num_tokens, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
@@ -1406,15 +1503,12 @@ def minference_vllm_forward(
 
                 output = minference_prefill_kvcache_func(
                     query,
-                    key,
-                    value,
                     key_cache,
                     value_cache,
                     cu_seqlens_q=prefill_meta.query_start_loc,
                     max_seqlen_q=prefill_meta.max_query_len,
                     cu_seqlens_k=prefill_meta.seq_start_loc,
                     max_seqlen_k=max_seq_len,
-                    softmax_scale=self.scale,
                     causal=True,
                     block_tables=prefill_meta.block_tables
                 )
@@ -1443,7 +1537,7 @@ def minference_vllm_forward(
 
     assert vllm_version >= '0.9.0', 'check vllm version using `pip show vllm`'
 
-    if vllm_version in ["0.4.1"]:
+    if vllm_version in ["0.4.1", "0.9.0"]:
         return forward
     # elif vllm_version == "0.4.2":
     #     return forward_vllm_042

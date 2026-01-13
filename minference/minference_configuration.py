@@ -99,7 +99,6 @@ class MInferenceConfig:
         if config_path is not None:
             return config_path
 
-        # TODO: config is updated, update corresponding setting in codes
         assert (
             model_name in MODEL2PATH
         ), f"The model {model_name} you specified is not supported. You are welcome to add it and open a PR :)"
