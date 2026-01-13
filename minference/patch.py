@@ -1109,6 +1109,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
         self_kv_cache = self.kv_cache[forward_context.virtual_engine]
 
         # * self.impl is attention backend, read vllm.Attention for more details, it also is replaced by attn_forward (minference_vllm_forward) in update_modules
+        # * since vllm >= 0.4.3 (0.9.0, 0.13.0), using minference_vllm_forward.forward_vllm_080. forward() might have different argument!
         return self.impl.forward(
             self,
             query,
@@ -1116,7 +1117,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
             value,
             self_kv_cache,
             attn_metadata,
-            output=output,
+            output=output,      # * forward (with vllm 0.4.1) might not contain this argument
             layer_idx=layer_idx,
         )
         # check self._kv_scale
