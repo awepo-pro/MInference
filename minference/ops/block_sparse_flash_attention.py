@@ -204,7 +204,11 @@ def _build_block_index(
 @triton.jit
 def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     Q,                            # * (b, h, seqlen, headdim)
-    seqlens, sm_scale,
+    seqlens, 
+    k_cache,
+    v_cache,
+    block_tables,
+    sm_scale,
     block_index,                        # * (b, h, ceil_div(seqlen, block_size_M), topk=MAX_BLOCKS_PER_ROW)
     Out,
     stride_qz, stride_qh, stride_qm, stride_qk,
@@ -337,8 +341,6 @@ def _triton_block_sparse_attention_with_kvcache(
         block_index,
         o,
         q.stride(0), q.stride(1), q.stride(2), q.stride(3),
-        k.stride(0), k.stride(1), k.stride(2), k.stride(3),
-        v.stride(0), v.stride(1), v.stride(2), v.stride(3),
         o.stride(0), o.stride(1), o.stride(2), o.stride(3),
         q.shape[0], q.shape[1], q.shape[2],
         block_index.shape[-2], block_index.shape[-1],

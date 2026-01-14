@@ -35,8 +35,12 @@ if _is_package_available("vllm"):
         if vllm_version < "0.4.1":
             warnings.warn("Only support 'vllm>=0.4.1'. Please update your vllm version.")
 
-from ..ops.block_sparse_flash_attention import block_sparse_attention, block_sparse_attention_with_kvcache
-from ..ops.pit_sparse_flash_attention_v2 import vertical_slash_sparse_attention
+from ..ops.block_sparse_flash_attention import (
+    # block_sparse_attention, 
+    block_sparse_attention_with_kvcache
+)
+
+# from ..ops.pit_sparse_flash_attention_v2 import vertical_slash_sparse_attention
 # from ..ops.streaming_kernel import streaming_forward, streaming_forward2
 # from .flexprefill import flexprefill_forward
 # from .kvcompression import *
@@ -1499,6 +1503,8 @@ def minference_vllm_forward(
 
                 output = minference_prefill_kvcache_func(
                     query,
+                    key,
+                    value,
                     key_cache,
                     value_cache,
                     cu_seqlens_q=prefill_meta.query_start_loc,
