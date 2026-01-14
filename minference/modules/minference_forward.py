@@ -26,7 +26,7 @@ if _is_package_available("vllm"):
         # * vllm/vllm_flash_attn, must built from source, ie. `uv pip install git+https://github.com/vllm-project/flash-attention`
         from vllm_flash_attn import flash_attn_varlen_func, flash_attn_with_kvcache
     except Exception as e:
-        print(e)
+        print(f'this is error {e}')
         raise Exception('flash attention is necessary for forward_vllm_080')
         import vllm
         vllm_version = vllm.__version__
@@ -848,8 +848,7 @@ def block_sparse_topk_vllm_with_kvcache(
         q,                  # * (batch=1, #head=1, total_tokens, headdim) 
         k, 
         v,
-        head_id,            # * scalar
-        k_cache,            # * (#block, max_num_block_per_seq, #head, headdim)
+        k_cache,            # * (#block, max_num_block_per_seq, #head=1, headdim)
         v_cache,
         cu_seqlens_q,       # * (#batch + 1)
         max_seqlen_q,
@@ -866,7 +865,6 @@ def block_sparse_topk_vllm_with_kvcache(
 
     def block_sparse_kernel_with_kvcache(
             q, k, v, 
-            head_id,
             k_cache, v_cache,
             cu_seqlens_q, max_seqlne_q,
             cu_seqlens_k, max_seqlen_k,
@@ -874,10 +872,7 @@ def block_sparse_topk_vllm_with_kvcache(
             top_k=100) -> torch.Tensor:
         return block_sparse_attention_with_kvcache(
             q, k, v,
-            head_id,
             k_cache, v_cache,
-            cu_seqlens_q, max_seqlne_q,
-            cu_seqlens_k, max_seqlen_k,
             block_tables,
             top_k)
 
@@ -892,8 +887,7 @@ def block_sparse_topk_vllm_with_kvcache(
         q,                  # * (batch=1, #head=1, total_tokens, headdim) 
         k, 
         v,
-        head_id,            # * scalar
-        k_cache,            # * (#block, max_num_block_per_seq, #head, headdim)
+        k_cache,            # * (#block, max_num_block_per_seq, #head=1, headdim)
         v_cache,
         cu_seqlens_q,       # * (#batch + 1)
         max_seqlen_q,
@@ -1297,35 +1291,35 @@ def minference_vllm_forward(
             hidden_states = hidden_states[:, :, None, :].expand(sqlen, num_head, n_rep, head_dim)
             return hidden_states.reshape(sqlen, num_head * n_rep, head_dim)
 
-        def minference_prefill_func(
-            q, k, v,
-        ):
-            # (seq_len, num_heads, head_size)
-            if q.size(-2) != k.size(-2):
-                k = repeat_kv(k, q.size(-2) // k.size(-2))
-                v = repeat_kv(v, q.size(-2) // v.size(-2))
+        # def minference_prefill_func(
+        #     q, k, v,
+        # ):
+        #     # (seq_len, num_heads, head_size)
+        #     if q.size(-2) != k.size(-2):
+        #         k = repeat_kv(k, q.size(-2) // k.size(-2))
+        #         v = repeat_kv(v, q.size(-2) // v.size(-2))
 
-            output = torch.empty_like(q)
-            head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
-            for head in range(q.size(-2)):
-                q_head = q[:, head, :].unsqueeze(1)
-                k_head = k[:, head, :].unsqueeze(1)
-                v_head = v[:, head, :].unsqueeze(1)
+        #     output = torch.empty_like(q)
+        #     head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
+        #     for head in range(q.size(-2)):
+        #         q_head = q[:, head, :].unsqueeze(1)
+        #         k_head = k[:, head, :].unsqueeze(1)
+        #         v_head = v[:, head, :].unsqueeze(1)
 
-                # (1, seq_len, num_heads, head_size)
-                q_head = q_head[None, ...]
-                k_head = k_head[None, ...]
-                v_head = v_head[None, ...]
+        #         # (1, seq_len, num_heads, head_size)
+        #         q_head = q_head[None, ...]
+        #         k_head = k_head[None, ...]
+        #         v_head = v_head[None, ...]
 
-                q_head = q_head.transpose(1, 2)
-                k_head = k_head.transpose(1, 2)
-                v_head = v_head.transpose(1, 2)
+        #         q_head = q_head.transpose(1, 2)
+        #         k_head = k_head.transpose(1, 2)
+        #         v_head = v_head.transpose(1, 2)
 
-                out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
+        #         out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
 
-                out = out.transpose(1, 2).squeeze(0).contiguous()
-                output[:, head:head+1, :] = out
-            return output
+        #         out = out.transpose(1, 2).squeeze(0).contiguous()
+        #         output[:, head:head+1, :] = out
+        #     return output
         
             
         def minference_prefill_kvcache_func(
@@ -1355,7 +1349,7 @@ def minference_vllm_forward(
                 v = repeat_kv(v, q.size(-2) // v.size(-2))
 
             output = torch.empty_like(q)
-            head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
+            # head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
 
             for head in range(q.size(-2)):
                 # * (seqlen, #head=1, headdim), unsqueeze(1) to make sure (#head=1) dimension doesn't disappear
@@ -1375,7 +1369,7 @@ def minference_vllm_forward(
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
 
-                # * 1 head of kv cache
+                # * 1 head of kv cache, (#block, max_num_block_per_seq, #head=1, headdim)
                 k_head_cache = k_cache[:, :, head, :]
                 v_head_cache = v_cache[:, :, head, :]
 
@@ -1383,7 +1377,6 @@ def minference_vllm_forward(
                     q_head, 
                     k_head,
                     v_head,
-                    head + head_idx_st,     # * since we pass whole q, k (without splitting batches), and block tables as well. passing extra metadata to parse them later
                     k_head_cache,
                     v_head_cache,
                     cu_seqlens_q,
