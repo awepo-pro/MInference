@@ -23,10 +23,12 @@ if _is_package_available("vllm"):
         from vllm.attention.ops.paged_attn import PagedAttention
         from vllm.distributed import get_tensor_model_parallel_rank
 
-        # * vllm/vllm_flash_attn, must built from source, ie. `uv pip install git+https://github.com/vllm-project/flash-attention`
-        from vllm_flash_attn import flash_attn_varlen_func, flash_attn_with_kvcache
-    except Exception as e:
-        print(f'this is error {e}')
+        try:
+            # * vllm/vllm_flash_attn, must built from source, ie. `uv pip install git+https://github.com/vllm-project/flash-attention`
+            from vllm_flash_attn import flash_attn_varlen_func, flash_attn_with_kvcache
+        except:
+            from flash_attn import flash_attn_varlen_func, flash_attn_with_kvcache
+    except:
         raise Exception('flash attention is necessary for forward_vllm_080')
         import vllm
         vllm_version = vllm.__version__
