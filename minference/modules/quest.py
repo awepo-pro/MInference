@@ -36,7 +36,7 @@ def local_heavy_hitter_mask(attn_weights, token_budget, chunk_size):
                 ),
                 device=attn_weights.device,
             )
-            * torch.tensor(torch.finfo(attn_weights.dtype).min),
+            * torch.tensor(torch.fin.dtype).min),
         ],
         dim=-1,
     )

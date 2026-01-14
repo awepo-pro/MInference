@@ -26,7 +26,7 @@ if _is_package_available("vllm"):
         # * vllm/vllm_flash_attn, must built from source, ie. `uv pip install git+https://github.com/vllm-project/flash-attention`
         from vllm_flash_attn import flash_attn_varlen_func, flash_attn_with_kvcache
     except Exception as e:
-        print(e)
+        print(f'what is this error {e=}')
         raise Exception('flash attention is necessary for forward_vllm_080')
         import vllm
         vllm_version = vllm.__version__
