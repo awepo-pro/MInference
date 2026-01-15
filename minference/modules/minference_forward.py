@@ -1497,7 +1497,7 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                debug_print(query.shape)        # * (#batch=5, #head=14, headdim=64)
+                debug_print(query.shape)        # * (#batch=4, #head=14, headdim=64)
                 debug_print(key.shape)
                 debug_print(value.shape)
                 debug_print(num_prefill_query_tokens)
@@ -1506,6 +1506,9 @@ def minference_vllm_forward(
                 
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
+
+                print('=' * 30 + 'pass prefill' + '=' * 30)
+                
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention
@@ -1566,6 +1569,11 @@ def minference_vllm_forward(
                 causal=True,
                 alibi_slopes=self.alibi_slopes,
             ).squeeze(1)
+
+            print('=' * 30 + 'pass decode' + '=' * 30)
+
+
+        debug_print(output.shape)
 
         # Reshape the output tensor.
         return output.view(num_tokens, hidden_size)
