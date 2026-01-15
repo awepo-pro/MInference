@@ -942,10 +942,10 @@ def minference_vllm_forward(
         """Forward pass with FlashAttention and PagedAttention.
 
         Args:
-            query: shape = [num_tokens, num_heads * head_size]
+            query: shape = [num_tokens, num_heads * head_size], #q_head = 14
             key: shape = [num_tokens, num_kv_heads * head_size]
             value: shape = [num_tokens, num_kv_heads * head_size]
-            kv_cache = [2, num_blocks, block_size * num_kv_heads * head_size]
+            kv_cache = [2, num_blocks, block_size * num_kv_heads * head_size], #kv_head = 2
             attn_metadata: Metadata for attention.
         Returns:
             shape = [num_tokens, num_heads * head_size]
@@ -1295,10 +1295,10 @@ def minference_vllm_forward(
         """Forward pass with FlashAttention.
 
         Args:
-            query: shape = [num_tokens, num_heads * head_size]
+            query: shape = [num_tokens, num_heads * head_size], #q_head = #heads = 14 (qwen-2)
             key: shape = [num_tokens, num_kv_heads * head_size]
             value: shape = [num_tokens, num_kv_heads * head_size]
-            kv_cache = [2, num_blocks, block_size, num_kv_heads, head_size]
+            kv_cache = [2, num_blocks, block_size, num_kv_heads, head_size], #kv_head = 2
             attn_metadata: Metadata for attention.
         Returns:
             shape = [num_tokens, num_heads * head_size]
@@ -1548,17 +1548,17 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            debug_print(type(kv_cache))
-            debug_print(len(kv_cache))
+            debug_print(type(kv_cache))     # * tensor
+            # debug_print(len(kv_cache))        # * 2 
 
             key_cache, value_cache = kv_cache[0], kv_cache[1]
-            debug_print(key_cache.shape)
+            debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
             debug_print(value_cache.shape)
 
             
             output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),
-                key_cache,                  # * (#block, max_num_block_per_seq, #head, headdim)
+                key_cache,                  # * (#block, 16, #kv_head=2, headdim)
                 value_cache,
                 block_table=decode_meta.block_tables,
                 cache_seqlens=decode_meta.seq_lens_tensor,
