@@ -122,7 +122,8 @@ def _triton_block_sparse_attn_fwd_kernel(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-    tl.device_print('off_hz: ', off_hz)
+    tl.device_print('program_id(0): ', tl.program_id(0))
+    tl.device_print('off_hz: ', tl.program_id(1))
     # tl.device_print(H)
     # tl.device_print(off_hz // H)
     # tl.device_print(off_hz % H)
