@@ -1465,6 +1465,8 @@ def minference_vllm_forward(
 
         num_prefill_query_tokens, num_prefill_kv_tokens, num_decode_query_tokens = get_num_prefill_decode_query_kv_tokens(attn_metadata, attn_type)
 
+        output = torch.empty_like(query)
+
         decode_query = query[num_prefill_query_tokens:]
         decode_output = output[num_prefill_query_tokens:]
         # QKV for prefill.
@@ -1472,9 +1474,7 @@ def minference_vllm_forward(
         prefill_output = output[:num_prefill_query_tokens]
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
-
-        output = torch.empty_like(query)
-
+        
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
@@ -1553,8 +1553,8 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            debug_print(decode_query.shape)
-            debug_print(decode_meta)
+            debug_print(decode_query.shape) # * (1, 14, 64)
+            debug_print(decode_meta)        
 
             debug_print(type(kv_cache))     # * tensor
             # debug_print(len(kv_cache))        # * 2 
@@ -1582,7 +1582,9 @@ def minference_vllm_forward(
                 alibi_slopes=self.alibi_slopes,
             )
 
-            debug_print(out.shape)
+            debug_print(out.shape)  # * (1, 1, 14, 64)
+            debug_print(output)     # * 
+            debug_print(num_prefill_query_tokens)
 
             output[num_prefill_query_tokens:] = out.squeeze(1)
 
