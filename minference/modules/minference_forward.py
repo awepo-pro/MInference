@@ -830,8 +830,11 @@ def gather_qkv(q, k, v, attention_mask):
 # * it is an embed method in self.impl.forward
 def block_sparse_topk_vllm(self, q, k, v, head_id):
     # * q, k, v \in (batch=1, head=1, seqlen, head_size)
+    print(f'inside block_sparse_topk_vllm, {q.shape=}\n {k.shape=}\n {v.shape=}')
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
+
+    exit()
 
     def block_sparse_kernel(q, k, v, top_k=100):
         return block_sparse_attention(q, k, v, top_k)
@@ -856,10 +859,10 @@ def block_sparse_topk_vllm_with_kvcache(
         v,
         k_cache,            # * (#block, max_num_block_per_seq, #head=1, headdim)
         v_cache,
-        cu_seqlens_q,       # * (#batch + 1)
-        max_seqlen_q,
-        cu_seqlens_k, 
-        max_seqlen_k,
+        # cu_seqlens_q,       # * (#batch + 1)
+        # max_seqlen_q,
+        # cu_seqlens_k, 
+        # max_seqlen_k,
         block_tables        # * (#batch, max_num_block_per_seq)
     ) -> torch.Tensor:
     
@@ -872,8 +875,8 @@ def block_sparse_topk_vllm_with_kvcache(
     def block_sparse_kernel_with_kvcache(
             q, k, v, 
             k_cache, v_cache,
-            cu_seqlens_q, max_seqlne_q,
-            cu_seqlens_k, max_seqlen_k,
+            # cu_seqlens_q, max_seqlne_q,
+            # cu_seqlens_k, max_seqlen_k,
             block_tables,
             top_k=100) -> torch.Tensor:
         return block_sparse_attention_with_kvcache(
@@ -895,10 +898,10 @@ def block_sparse_topk_vllm_with_kvcache(
         v,
         k_cache,            # * (#block, max_num_block_per_seq, #head=1, headdim)
         v_cache,
-        cu_seqlens_q,       # * (#batch + 1)
-        max_seqlen_q,
-        cu_seqlens_k, 
-        max_seqlen_k,
+        # cu_seqlens_q,       # * (#batch + 1)
+        # max_seqlen_q,
+        # cu_seqlens_k, 
+        # max_seqlen_k,
         block_tables)        # * (#batch, max_num_block_per_seq)
 
 
@@ -924,13 +927,13 @@ def minference_vllm_forward(
         """Forward pass with FlashAttention and PagedAttention.
 
         Args:
-            query: shape = [seqlen, num_heads * head_size]
-            key: shape = [seqlen, num_kv_heads * head_size]
-            value: shape = [seqlen, num_kv_heads * head_size]
+            query: shape = [num_tokens, num_heads * head_size]
+            key: shape = [num_tokens, num_kv_heads * head_size]
+            value: shape = [num_tokens, num_kv_heads * head_size]
             kv_cache = [2, num_blocks, block_size * num_kv_heads * head_size]
             attn_metadata: Metadata for attention.
         Returns:
-            shape = [seqlen, num_heads * head_size]
+            shape = [num_tokens, num_heads * head_size]
         """
         # self.patch_config = patch_config
         # self.best_pattern = {int(ii): jj for ii, jj in pattern_config[layer_idx].items()}
@@ -1297,35 +1300,37 @@ def minference_vllm_forward(
             hidden_states = hidden_states[:, :, None, :].expand(sqlen, num_head, n_rep, head_dim)
             return hidden_states.reshape(sqlen, num_head * n_rep, head_dim)
 
-        # def minference_prefill_func(
-        #     q, k, v,
-        # ):
-        #     # (seq_len, num_heads, head_size)
-        #     if q.size(-2) != k.size(-2):
-        #         k = repeat_kv(k, q.size(-2) // k.size(-2))
-        #         v = repeat_kv(v, q.size(-2) // v.size(-2))
+        def minference_prefill_func(
+            q, k, v,
+        ):
+            # (seq_len, num_heads, head_size)
+            if q.size(-2) != k.size(-2):
+                k = repeat_kv(k, q.size(-2) // k.size(-2))
+                v = repeat_kv(v, q.size(-2) // v.size(-2))
+                print(f'after grouped, {k.shape=}')
 
-        #     output = torch.empty_like(q)
-        #     head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
-        #     for head in range(q.size(-2)):
-        #         q_head = q[:, head, :].unsqueeze(1)
-        #         k_head = k[:, head, :].unsqueeze(1)
-        #         v_head = v[:, head, :].unsqueeze(1)
 
-        #         # (1, seq_len, num_heads, head_size)
-        #         q_head = q_head[None, ...]
-        #         k_head = k_head[None, ...]
-        #         v_head = v_head[None, ...]
+            output = torch.empty_like(q)
+            head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
+            for head in range(q.size(-2)):
+                q_head = q[:, head, :].unsqueeze(1)
+                k_head = k[:, head, :].unsqueeze(1)
+                v_head = v[:, head, :].unsqueeze(1)
 
-        #         q_head = q_head.transpose(1, 2)
-        #         k_head = k_head.transpose(1, 2)
-        #         v_head = v_head.transpose(1, 2)
+                # (1, seq_len, num_heads, head_size)
+                q_head = q_head[None, ...]
+                k_head = k_head[None, ...]
+                v_head = v_head[None, ...]
 
-        #         out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
+                q_head = q_head.transpose(1, 2)
+                k_head = k_head.transpose(1, 2)
+                v_head = v_head.transpose(1, 2)
 
-        #         out = out.transpose(1, 2).squeeze(0).contiguous()
-        #         output[:, head:head+1, :] = out
-        #     return output
+                out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
+
+                out = out.transpose(1, 2).squeeze(0).contiguous()
+                output[:, head:head+1, :] = out
+            return output
         
             
         def minference_prefill_kvcache_func(
@@ -1334,10 +1339,10 @@ def minference_vllm_forward(
                 v: torch.Tensor,
                 k_cache: torch.Tensor,          # * (#block, max_num_block_per_seq, #head, headdim)
                 v_cache: torch.Tensor,
-                cu_seqlens_q: torch.Tensor,
-                max_seqlen_q: torch.Tensor,
-                cu_seqlens_k: torch.Tensor,
-                max_seqlen_k: torch.Tensor,
+                # cu_seqlens_q: torch.Tensor,
+                # max_seqlen_q: torch.Tensor,
+                # cu_seqlens_k: torch.Tensor,
+                # max_seqlen_k: torch.Tensor,
                 causal: bool,                   # * must be causal attention
                 block_tables: torch.Tensor,     # * (#batch, max_num_block_per_seq)
         ) -> torch.Tensor:
@@ -1385,10 +1390,10 @@ def minference_vllm_forward(
                     v_head,
                     k_head_cache,
                     v_head_cache,
-                    cu_seqlens_q,
-                    max_seqlen_q,
-                    cu_seqlens_k, 
-                    max_seqlen_k,
+                    # cu_seqlens_q,
+                    # max_seqlen_q,
+                    # cu_seqlens_k, 
+                    # max_seqlen_k,
                     block_tables)
 
                 out = out.transpose(1, 2).squeeze(0).contiguous()
@@ -1457,6 +1462,8 @@ def minference_vllm_forward(
 
         output = torch.empty_like(query)
 
+        # * Assumption: no chunked prefill. Query must be 100% prefill or 100% decode
+
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
@@ -1476,6 +1483,11 @@ def minference_vllm_forward(
                 #     window_size=self.sliding_window,
                 #     alibi_slopes=self.alibi_slopes,
                 # )
+
+                print(f'{query.shape=}')
+                print(f'{key.shape=}')
+                print(f'{value.shape=}')
+                
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
                 output[:num_prefill_query_tokens] = out
@@ -1501,19 +1513,19 @@ def minference_vllm_forward(
                 assert value_cache, 'value cache is impossible to be empty/uninit in decode phrase'
 
 
-                output = minference_prefill_kvcache_func(
-                    query,
-                    key,
-                    value,
-                    key_cache,
-                    value_cache,
-                    cu_seqlens_q=prefill_meta.query_start_loc,
-                    max_seqlen_q=prefill_meta.max_query_len,
-                    cu_seqlens_k=prefill_meta.seq_start_loc,
-                    max_seqlen_k=max_seq_len,
-                    causal=True,
-                    block_tables=prefill_meta.block_tables
-                )
+                # output = minference_prefill_kvcache_func(
+                #     query,
+                #     key,
+                #     value,
+                #     key_cache,
+                #     value_cache,
+                #     # cu_seqlens_q=prefill_meta.query_start_loc,
+                #     # max_seqlen_q=prefill_meta.max_query_len,
+                #     # cu_seqlens_k=prefill_meta.seq_start_loc,
+                #     # max_seqlen_k=max_seq_len,
+                #     causal=True,
+                #     block_tables=prefill_meta.block_tables
+                # )
 
                 assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 

@@ -207,7 +207,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     seqlens, 
     k_cache,
     v_cache,
-    block_tables,
+    block_tables,                 # * (#batch, max_num_block_per_seq=max_seq / block_size), max_seq := max model len, block_size := 16 (by default)
+    bt_batchs,                     # * #batch                in block_tables
+    bt_blocks,                     # * max_num_block_per_seq in block_tables
     sm_scale,
     block_index,                        # * (b, h, ceil_div(seqlen, block_size_M), topk=MAX_BLOCKS_PER_ROW)
     Out,
@@ -244,6 +246,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     offs_m = start_m * BLOCK_M + tl.arange(0, BLOCK_M)
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
+
+    # * fetch kv from kv_cache
+
 
     # * offset of batch and head
     qo_offset = (off_hz // H) * stride_qz + (off_hz % H) * stride_qh
@@ -337,6 +342,7 @@ def _triton_block_sparse_attention_with_kvcache(
         k_cache, 
         v_cache, 
         block_tables,
+        block_tables.shape[0], block_tables.shape[1],
         sm_scale,
         block_index,
         o,
