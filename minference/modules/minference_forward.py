@@ -1482,10 +1482,8 @@ def minference_vllm_forward(
 
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
+            # * kv_cache.numel() != 0, prefill_meta.block_tables is not None
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
-                debug_print(kv_cache.numel())
-                debug_print(prefill_meta.block_tables is None)
-                debug_print(prefill_meta.block_tables.numel())
                 # normal attention
                 # When block_tables are not filled, it means q and k are the
                 # prompt, and they have the same length.
@@ -1520,6 +1518,7 @@ def minference_vllm_forward(
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention
+                assert False
                 assert prefill_meta.seq_lens is not None
                 max_seq_len = max(prefill_meta.seq_lens)
                 # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
@@ -1561,6 +1560,11 @@ def minference_vllm_forward(
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
+
+            debug_print(decode_meta.block_tables.numel())
+
+            if decode_meta.block_tables.numel() != 0:
+                debug_print(decode_meta.block_tables)
 
             # debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
             # debug_print(decode_meta)        
