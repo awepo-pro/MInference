@@ -1477,6 +1477,11 @@ def minference_vllm_forward(
 
         # * Assumption: no chunked prefill. Query must be 100% prefill or 100% decode
 
+        if kv_cache.numel() != 0:
+            debug_print(kv_cache.numel())
+        else:
+            print(f'{"=" * 30} kv cache is not is this case!')
+
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
@@ -1514,6 +1519,7 @@ def minference_vllm_forward(
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention
+                assert False
                 assert prefill_meta.seq_lens is not None
                 max_seq_len = max(prefill_meta.seq_lens)
                 # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
