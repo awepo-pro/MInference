@@ -1548,12 +1548,17 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            if not kv_cache:
-                print('=' * 30, 'no key_cache!')
+            debug_print(type(kv_cache))
+            debug_print(len(kv_cache))
+
+            key_cache, value_cache = kv_cache[0], kv_cache[1]
+            debug_print(key_cache.shape)
+            debug_print(value_cache.shape)
+
             
             output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),
-                key_cache,
+                key_cache,                  # * (#block, max_num_block_per_seq, #head, headdim)
                 value_cache,
                 block_table=decode_meta.block_tables,
                 cache_seqlens=decode_meta.seq_lens_tensor,
