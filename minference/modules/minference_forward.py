@@ -1558,6 +1558,12 @@ def minference_vllm_forward(
             debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
             debug_print(value_cache.shape)
 
+            if key_cache.numel() == 0:
+                print('=' * 30 + 'no key cache')
+            
+            if value_cache.numel() == 0:
+                print('=' * 30  + 'no value cache')
+
             
             output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),
@@ -1574,9 +1580,11 @@ def minference_vllm_forward(
 
 
         debug_print(output.shape)
+        debug_print(output.reshape(-1, num_tokens * hidden_size))
 
         # Reshape the output tensor.
-        return output.view(num_tokens, hidden_size)
+        # return output.view(num_tokens, hidden_size)
+        return output.reshape(-1, num_tokens * hidden_size)
 
     assert vllm_version >= '0.9.0', 'check vllm version using `pip show vllm`'
 
