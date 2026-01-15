@@ -1475,6 +1475,7 @@ def minference_vllm_forward(
         # QKV for prefill.
         query = query[:num_prefill_query_tokens]
         prefill_output = output[:num_prefill_query_tokens]
+        
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
         
@@ -1565,9 +1566,9 @@ def minference_vllm_forward(
             debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
             debug_print(value_cache.shape)
 
-            assert num_prefill_query_tokens == 1, 'decode should only has 1 query'
+            assert num_prefill_query_tokens == 0, 'decode should only has 1 query'
             
-            output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
+            output = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),           # * (1, 1, 14, 64)
                 key_cache,                               # * (#block, 16, #kv_head=2, headdim)
                 value_cache,
