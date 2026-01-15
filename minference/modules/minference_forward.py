@@ -1475,13 +1475,6 @@ def minference_vllm_forward(
 
         output = torch.empty_like(query)
 
-        # * Assumption: no chunked prefill. Query must be 100% prefill or 100% decode
-
-        if kv_cache.numel() != 0:
-            debug_print(kv_cache.numel())
-        else:
-            print(f'{"=" * 30} kv cache is not is this case!')
-
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
@@ -1576,6 +1569,7 @@ def minference_vllm_forward(
             if value_cache.numel() == 0:
                 print('=' * 30  + 'no value cache')
 
+            debug_print(decode_query.unsqueeze(1).shape)
             
             output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),
@@ -1588,10 +1582,12 @@ def minference_vllm_forward(
                 alibi_slopes=self.alibi_slopes,
             ).squeeze(1)
 
+            print(output.shape)
+
             print('=' * 30 + 'pass decode' + '=' * 30)
 
 
-        # debug_print(output.shape) # * (4, 14, 64) for prefill
+        # debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode
         # debug_print(output.view(num_tokens, hidden_size).shape) # * (4, 896) for prefill
 
 
