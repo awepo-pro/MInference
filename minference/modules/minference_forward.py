@@ -1477,80 +1477,81 @@ def minference_vllm_forward(
 
         # * Assumption: no chunked prefill. Query must be 100% prefill or 100% decode
 
-        if prefill_meta := attn_metadata.prefill_metadata:
-            # Prompt run.
-            if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
-                # normal attention
-                # When block_tables are not filled, it means q and k are the
-                # prompt, and they have the same length.
-                # out = flash_attn_varlen_func(
-                #     q=query,
-                #     k=key,
-                #     v=value,
-                #     cu_seqlens_q=prefill_meta.seq_start_loc,
-                #     cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     max_seqlen_q=prefill_meta.max_prefill_seq_len,
-                #     max_seqlen_k=prefill_meta.max_prefill_seq_len,
-                #     softmax_scale=self.scale,
-                #     causal=True,
-                #     window_size=self.sliding_window,
-                #     alibi_slopes=self.alibi_slopes,
-                # )
+        # if prefill_meta := attn_metadata.prefill_metadata:
+        #     # Prompt run.
+        #     if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
+        #         # normal attention
+        #         # When block_tables are not filled, it means q and k are the
+        #         # prompt, and they have the same length.
+        #         # out = flash_attn_varlen_func(
+        #         #     q=query,
+        #         #     k=key,
+        #         #     v=value,
+        #         #     cu_seqlens_q=prefill_meta.seq_start_loc,
+        #         #     cu_seqlens_k=prefill_meta.seq_start_loc,
+        #         #     max_seqlen_q=prefill_meta.max_prefill_seq_len,
+        #         #     max_seqlen_k=prefill_meta.max_prefill_seq_len,
+        #         #     softmax_scale=self.scale,
+        #         #     causal=True,
+        #         #     window_size=self.sliding_window,
+        #         #     alibi_slopes=self.alibi_slopes,
+        #         # )
 
-                debug_print(query.shape)        # * (#batch=4, #head=14, headdim=64)
-                debug_print(key.shape)
-                debug_print(value.shape)
-                debug_print(num_prefill_query_tokens)
-                debug_print(num_prefill_kv_tokens)
-                debug_print(num_decode_query_tokens)
+        #         debug_print(query.shape)        # * (#batch=4, #head=14, headdim=64)
+        #         debug_print(key.shape)
+        #         debug_print(value.shape)
+        #         debug_print(num_prefill_query_tokens)
+        #         debug_print(num_prefill_kv_tokens)
+        #         debug_print(num_decode_query_tokens)
                 
-                out = minference_prefill_func(query, key, value)
-                assert output[:num_prefill_query_tokens].shape == out.shape
+        #         out = minference_prefill_func(query, key, value)
+        #         assert output[:num_prefill_query_tokens].shape == out.shape
 
-                print('=' * 30 + 'pass prefill' + '=' * 30)
+        #         print('=' * 30 + 'pass prefill' + '=' * 30)
                 
-                output[:num_prefill_query_tokens] = out
-            else:
-                # prefix-enabled attention
-                assert prefill_meta.seq_lens is not None
-                max_seq_len = max(prefill_meta.seq_lens)
-                # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
-                #     q=query,
-                #     k=key_cache,
-                #     v=value_cache,
-                #     cu_seqlens_q=prefill_meta.query_start_loc,
-                #     max_seqlen_q=prefill_meta.max_query_len,
-                #     cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     max_seqlen_k=max_seq_len,
-                #     softmax_scale=self.scale,
-                #     causal=True,
-                #     alibi_slopes=self.alibi_slopes,
-                #     block_table=prefill_meta.block_tables,
-                # )
+        #         output[:num_prefill_query_tokens] = out
+        #     else:
+        #         # prefix-enabled attention
+        #         assert prefill_meta.seq_lens is not None
+        #         max_seq_len = max(prefill_meta.seq_lens)
+        #         # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
+        #         #     q=query,
+        #         #     k=key_cache,
+        #         #     v=value_cache,
+        #         #     cu_seqlens_q=prefill_meta.query_start_loc,
+        #         #     max_seqlen_q=prefill_meta.max_query_len,
+        #         #     cu_seqlens_k=prefill_meta.seq_start_loc,
+        #         #     max_seqlen_k=max_seq_len,
+        #         #     softmax_scale=self.scale,
+        #         #     causal=True,
+        #         #     alibi_slopes=self.alibi_slopes,
+        #         #     block_table=prefill_meta.block_tables,
+        #         # )
 
-                assert key_cache, 'key cache is impossible to be empty/uninit in decode phrase' 
-                assert value_cache, 'value cache is impossible to be empty/uninit in decode phrase'
+        #         assert key_cache, 'key cache is impossible to be empty/uninit in decode phrase' 
+        #         assert value_cache, 'value cache is impossible to be empty/uninit in decode phrase'
 
 
-                # output = minference_prefill_kvcache_func(
-                #     query,
-                #     key,
-                #     value,
-                #     key_cache,
-                #     value_cache,
-                #     # cu_seqlens_q=prefill_meta.query_start_loc,
-                #     # max_seqlen_q=prefill_meta.max_query_len,
-                #     # cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     # max_seqlen_k=max_seq_len,
-                #     causal=True,
-                #     block_tables=prefill_meta.block_tables
-                # )
+        #         # output = minference_prefill_kvcache_func(
+        #         #     query,
+        #         #     key,
+        #         #     value,
+        #         #     key_cache,
+        #         #     value_cache,
+        #         #     # cu_seqlens_q=prefill_meta.query_start_loc,
+        #         #     # max_seqlen_q=prefill_meta.max_query_len,
+        #         #     # cu_seqlens_k=prefill_meta.seq_start_loc,
+        #         #     # max_seqlen_k=max_seq_len,
+        #         #     causal=True,
+        #         #     block_tables=prefill_meta.block_tables
+        #         # )
 
-                assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
+        #         assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
+            debug_print(decode_query.shape)
             debug_print(type(kv_cache))     # * tensor
             # debug_print(len(kv_cache))        # * 2 
 
