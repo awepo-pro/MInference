@@ -1569,9 +1569,9 @@ def minference_vllm_forward(
             if value_cache.numel() == 0:
                 print('=' * 30  + 'no value cache')
 
-            debug_print(decode_query.unsqueeze(1).shape)
+            debug_print(decode_query.unsqueeze(1).shape)    # * (1, 1, 14, 64)
             
-            output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
+            out = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),
                 key_cache,                  # * (#block, 16, #kv_head=2, headdim)
                 value_cache,
@@ -1580,9 +1580,14 @@ def minference_vllm_forward(
                 softmax_scale=self.scale,
                 causal=True,
                 alibi_slopes=self.alibi_slopes,
-            ).squeeze(1)
+            )
 
-            print(output.shape)
+            debug_print(out.shape)
+
+            output[num_prefill_query_tokens:] = out.squeeze(1)
+
+
+            debug_print(output.shape) # * (0, 14, 64)
 
             print('=' * 30 + 'pass decode' + '=' * 30)
 
