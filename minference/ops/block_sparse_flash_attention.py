@@ -12,7 +12,8 @@ import triton.language as tl
 
 import inspect
 
-def debug_print(var):
+def debug_print(var, comment=""):
+    print(comment, end='')
     # Get the frame of the caller (the line that called debug_print)
     frame = inspect.currentframe().f_back
     
@@ -83,8 +84,8 @@ def _triton_block_sparse_attn_fwd_kernel(
     stride_kz, stride_kh, stride_kn, stride_kk,
     stride_vz, stride_vh, stride_vn, stride_vk,
     stride_oz, stride_oh, stride_om, stride_ok,
-    Z, H, N_CTX,
-    NUM_ROWS, MAX_BLOCKS_PRE_ROW,
+    Z, H, N_CTX,                        # * Z=q.shape[0], H=q.shape[1], N_CTX=q.shape[2]
+    NUM_ROWS, MAX_BLOCKS_PRE_ROW,       # * NUM_ROWS=BLOCK_SIZE_M; MAX_BLOCKS_PER_ROW := min(topk, seqlen // block_size_N)
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_DMODEL: tl.constexpr,
@@ -121,14 +122,15 @@ def _triton_block_sparse_attn_fwd_kernel(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-    tl.device_print(H)
-    tl.device_print(off_hz // H)
-    tl.device_print(off_hz % H)
-    tl.device_print(stride_qz)
-    tl.device_print(stride_qh)
-    tl.device_print(stride_qm)
-    tl.device_print(stride_qk)
-    tl.device_print(qo_offset)
+    tl.device_print(f'{off_hz=}')
+    # tl.device_print(H)
+    # tl.device_print(off_hz // H)
+    # tl.device_print(off_hz % H)
+    # tl.device_print(stride_qz)
+    # tl.device_print(stride_qh)
+    # tl.device_print(stride_qm)
+    # tl.device_print(stride_qk)
+    # tl.device_print(qo_offset)
     
 
     # * start_point + batch_head_offset + block_offset + headdim_offset
@@ -136,8 +138,6 @@ def _triton_block_sparse_attn_fwd_kernel(
     k_ptrs = K      + kv_offset                               + offs_d[:, None] * stride_kk
     v_ptrs = V      + kv_offset                               + offs_d[None, :] * stride_vk
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
-
-    tl.device_print(type(q_ptrs))
 
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
@@ -210,6 +210,16 @@ def _triton_block_sparse_attention(
     o = torch.zeros_like(q)
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
+
+    # * ================================ dbug print ========================================
+    debug_print(q.shape)
+    off_hz = grid[1]
+    H = q.shape[1]
+    debug_print(off_hz)
+    debug_print(off_hz // H)
+    debug_print(off_hz % H)
+
+    # * ====================================================================================
     
     _triton_block_sparse_attn_fwd_kernel[grid](
         q, k, v, seqlens, sm_scale,
