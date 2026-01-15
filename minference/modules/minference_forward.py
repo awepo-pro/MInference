@@ -1550,13 +1550,13 @@ def minference_vllm_forward(
 
                 assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
+        # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
             debug_print(decode_query.shape)
             debug_print(decode_meta)
 
-            exit()
             debug_print(type(kv_cache))     # * tensor
             # debug_print(len(kv_cache))        # * 2 
 
@@ -1585,11 +1585,19 @@ def minference_vllm_forward(
             print('=' * 30 + 'pass decode' + '=' * 30)
 
 
-        debug_print(output.shape)
-        debug_print(output.view(num_tokens, hidden_size).shape)
+        # debug_print(output.shape) # * (4, 14, 64) for prefill
+        # debug_print(output.view(num_tokens, hidden_size).shape) # * (4, 896) for prefill
+
+
 
         # Reshape the output tensor.
-        return output.view(num_tokens, hidden_size)
+        try: 
+            return output.view(num_tokens, hidden_size)
+        except:
+            debug_print(num_tokens)
+            debug_print(hidden_size)
+            debug_print(query.shape)
+            return output.view(0, hidden_size)
         # return output.reshape(-1, num_tokens * hidden_size)
 
     assert vllm_version >= '0.9.0', 'check vllm version using `pip show vllm`'
