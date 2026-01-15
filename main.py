@@ -11,10 +11,11 @@ def main() -> None:
     assert os.environ.get('VLLM_USE_V1') == '0', f'using v1, VLLM_USE_V1: {os.environ.get("VLLM_USE_V1")}'
     assert os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING') == '0', f'using multiprocessing, VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING")}'
     prompts = [
-        "Hello my name is",    # * 4 words
+        # "Hello my name is",    # * 4 words
         # "The president of the United States is",    # * 7 words
         # "The capital of France is cold",    # * 6 words
         # "The future of AI is",      # * 5 words
+        "Shakespeare was born and raised in Stratford-upon-Avon, Warwickshire. At the age of 18, he married Anne Hathaway, with whom he had three children: Susanna, and twins Hamnet and Judith. Sometime between 1585 and 1592 he began a successful career in London as an actor, writer, and part-owner (\"sharer\") of a playing company called the Lord Chamberlain's Men, later known as the King's Men after the ascension of King James VI of Scotland to the English throne. At age 49 (around 1613) he appears to have retired to Stratford, where he died three years later. Few records of Shakespeare's private life survive; this has stimulated considerable speculation about such matters as his physical appearance, his sexuality, his religious beliefs and even certain fringe theories as to whether the works attributed to him were written by others."
     ]
 
     sampling_params = SamplingParams(
@@ -31,7 +32,7 @@ def main() -> None:
         enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
         dtype='float16',
         max_model_len=12800,
-        block_size=256,
+        block_size=16,
     )
 
     # Patch MInference Module

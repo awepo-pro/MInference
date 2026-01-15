@@ -1348,11 +1348,11 @@ def minference_vllm_forward(
         
             
         def minference_prefill_kvcache_func(
-                q: torch.Tensor,                # * (total_tokens, #head, headdim), ragged batching
+                q: torch.Tensor,                # * (seqlen, #head, headdim), ragged batching
                 k: torch.Tensor,              # * kv are cached in advanced, however, if len(k) == 1, we could do decode in this case
                 v: torch.Tensor,
-                k_cache: torch.Tensor,          # * (#block, max_num_block_per_seq, #head, headdim)
-                v_cache: torch.Tensor,
+                k_cache: torch.Tensor,          # * (#block, max_num_block_per_seq=block_size, #head, headdim), block_size := 16 by default
+                v_cache: torch.Tensor,  
                 # cu_seqlens_q: torch.Tensor,
                 # max_seqlen_q: torch.Tensor,
                 # cu_seqlens_k: torch.Tensor,
@@ -1363,7 +1363,7 @@ def minference_vllm_forward(
 
             assert k_cache.stride(-1) == 1, "k_cache must have contiguous last dimension"
             assert v_cache.stride(-1) == 1, "v_cache must have contiguous last dimension"
-            assert q.shape[0] == block_tables[0], f'{q.shape[0]=}, {block_tables.shape[0]} should be equivalent'
+            assert q.shape[0] == block_tables.shape[0], f'{q.shape[0]} != {block_tables.shape[0]}'
 
             q = q.contiguous() if q.stride(-1) != 1 else q
             batch_size, seqlen, num_heads, head_dim = q.shape
@@ -1411,7 +1411,8 @@ def minference_vllm_forward(
                     block_tables)
 
                 out = out.transpose(1, 2).squeeze(0).contiguous()
-                output[:, head:head+1, :] = out
+                # output[:, head:head+1, :] = out
+                output[:, head, :] = out
 
             return output
             
@@ -1532,23 +1533,25 @@ def minference_vllm_forward(
                 #     block_table=prefill_meta.block_tables,
                 # )
 
+                print(f'=' * 30, 'prefix enabled')
+
                 assert key_cache, 'key cache is impossible to be empty/uninit in decode phrase' 
                 assert value_cache, 'value cache is impossible to be empty/uninit in decode phrase'
 
 
-                # output = minference_prefill_kvcache_func(
-                #     query,
-                #     key,
-                #     value,
-                #     key_cache,
-                #     value_cache,
-                #     # cu_seqlens_q=prefill_meta.query_start_loc,
-                #     # max_seqlen_q=prefill_meta.max_query_len,
-                #     # cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     # max_seqlen_k=max_seq_len,
-                #     causal=True,
-                #     block_tables=prefill_meta.block_tables
-                # )
+                output = minference_prefill_kvcache_func(
+                    query,
+                    key,
+                    value,
+                    key_cache,
+                    value_cache,
+                    # cu_seqlens_q=prefill_meta.query_start_loc,
+                    # max_seqlen_q=prefill_meta.max_query_len,
+                    # cu_seqlens_k=prefill_meta.seq_start_loc,
+                    # max_seqlen_k=max_seq_len,
+                    causal=True,
+                    block_tables=prefill_meta.block_tables
+                )
 
                 assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
@@ -1567,7 +1570,7 @@ def minference_vllm_forward(
             
             output = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),           # * (1, 1, 14, 64)
-                key_cache,                               # * (#block, 16, #kv_head=2, headdim)
+                key_cache,                               # * (#block, 256, #kv_head=2, headdim)
                 value_cache,
                 block_table=decode_meta.block_tables,
                 cache_seqlens=decode_meta.seq_lens_tensor,
@@ -1579,7 +1582,7 @@ def minference_vllm_forward(
             # debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
             # debug_print(output.shape) # * (1, 14, 64)
 
-            print('=' * 30 + 'pass decode' + '=' * 30)
+            # print('=' * 30 + 'pass decode' + '=' * 30)
 
 
         # debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode

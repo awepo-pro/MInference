@@ -122,8 +122,6 @@ def _triton_block_sparse_attn_fwd_kernel(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-    tl.device_print('program_id(0): ', tl.program_id(0))
-    tl.device_print('off_hz: ', tl.program_id(1))
     # tl.device_print(H)
     # tl.device_print(off_hz // H)
     # tl.device_print(off_hz % H)
@@ -246,7 +244,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     seqlens, 
     k_cache,
     v_cache,
-    block_tables,                 # * (#batch, max_num_block_per_seq=max_seq / block_size), max_seq := max model len, block_size := 16 (by default)
+    block_tables,                 # * (#batch, max_num_block_per_seq=max_seq / block), max_seq := max model len, block := 16 (by default)
     bt_batchs,                     # * #batch                in block_tables
     bt_blocks,                     # * max_num_block_per_seq in block_tables
     sm_scale,
@@ -361,7 +359,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 def _triton_block_sparse_attention_with_kvcache(
     q,                 # * [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
     seqlens,           # [BATCH, ]
-    k_cache,           # * (#block, max_num_block_per_seq, #head=1, headdim)
+    k_cache,           # * (#block, max_num_block_per_seq, block_size=2, headdim), block_size := float16 -> 2 bytes
     v_cache,
     block_tables,      # * (#batch, max_num_block_per_seq)
     block_index,       # [BATCH, N_HEADS, cdiv(N_CTX, BLOCK_SIZE_M), MAX_BLOCKS_PRE_ROW], MAX_BLOCKS_PER_ROW := min(topk, seqlen // block_size_N)
@@ -373,6 +371,14 @@ def _triton_block_sparse_attention_with_kvcache(
     headdim = q.shape[-1]
     assert headdim in {16, 32, 64, 128}
     assert q.shape[0] == 1, f'batch size should be 1, but ({q.shape[0]})'
+
+    # * ================================================= dbug =====================================================
+    debug_print(q.shape)
+    debug_print(block_tables.shape)
+    debug_print(seqlens)
+    debug_print(block_index.shape)
+    
+    # * ============================================================================================================
 
     o = torch.zeros_like(q)
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
