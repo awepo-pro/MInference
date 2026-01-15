@@ -36,7 +36,7 @@ if _is_package_available("vllm"):
             warnings.warn("Only support 'vllm>=0.4.1'. Please update your vllm version.")
 
 from ..ops.block_sparse_flash_attention import (
-    # block_sparse_attention, 
+    block_sparse_attention, 
     block_sparse_attention_with_kvcache
 )
 
