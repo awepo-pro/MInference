@@ -1430,9 +1430,11 @@ def minference_vllm_forward(
         logits_soft_cap: Optional[float] = self.logits_soft_cap
         fp8_attention = kv_cache_dtype.startswith("fp8")
 
+        assert kv_cache.shape[0] == 2, f'{kv_cache.shape}, first diemnsion must be 2'
+        key_cache = kv_cache[0]
+        value_cache = kv_cache[1]
+
         if kv_cache.numel() > 0:
-            key_cache = kv_cache[0]
-            value_cache = kv_cache[1]
             # We skip updating the KV cache under two conditions:
             #  a. When the Attention Type is ENCODER. In this phase, we compute
             #     only the encoder attention without updating the cache.
@@ -1465,6 +1467,7 @@ def minference_vllm_forward(
 
         num_prefill_query_tokens, num_prefill_kv_tokens, num_decode_query_tokens = get_num_prefill_decode_query_kv_tokens(attn_metadata, attn_type)
 
+        # * IMPORTANT: don't init after query=query[:num_prefill_query_tokens]
         output = torch.empty_like(query)
 
         decode_query = query[num_prefill_query_tokens:]
@@ -1495,13 +1498,13 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                print(prefill_meta)
+                # debug_print(prefill_meta)
 
-                # debug_print(query.shape)        # * (#batch=4, #head=14, headdim=64)
-                # debug_print(key.shape)
+                # debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
+                # debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
                 # debug_print(value.shape)
-                # debug_print(num_prefill_query_tokens)   # * 4
-                # debug_print(num_prefill_kv_tokens)      # * 4
+                # debug_print(num_prefill_query_tokens)   # * same as num_prefill_kv_tokens, ie. "Hello my name is" -> 4
+                # debug_print(num_prefill_kv_tokens)     
                 # debug_print(num_decode_query_tokens)    # * 0
                 
                 out = minference_prefill_func(query, key, value)
@@ -1512,7 +1515,6 @@ def minference_vllm_forward(
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention
-                assert False
                 assert prefill_meta.seq_lens is not None
                 max_seq_len = max(prefill_meta.seq_lens)
                 # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
@@ -1553,7 +1555,7 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            debug_print(decode_query.shape) # * (1, 14, 64)
+            debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
             debug_print(decode_meta)        
 
             debug_print(type(kv_cache))     # * tensor
@@ -1563,33 +1565,21 @@ def minference_vllm_forward(
             debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
             debug_print(value_cache.shape)
 
-            if key_cache.numel() == 0:
-                print('=' * 30 + 'no key cache')
+            assert num_prefill_query_tokens == 1, 'decode should only has 1 query'
             
-            if value_cache.numel() == 0:
-                print('=' * 30  + 'no value cache')
-
-            debug_print(decode_query.unsqueeze(1).shape)    # * (1, 1, 14, 64)
-            
-            out = flash_attn_with_kvcache(
-                decode_query.unsqueeze(1),
-                key_cache,                  # * (#block, 16, #kv_head=2, headdim)
+            output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
+                decode_query.unsqueeze(1),           # * (1, 1, 14, 64)
+                key_cache,                               # * (#block, 16, #kv_head=2, headdim)
                 value_cache,
                 block_table=decode_meta.block_tables,
                 cache_seqlens=decode_meta.seq_lens_tensor,
                 softmax_scale=self.scale,
                 causal=True,
                 alibi_slopes=self.alibi_slopes,
-            )
+            ).squeeze(1)
 
-            debug_print(out.shape)  # * (1, 1, 14, 64)
-            debug_print(output.shape)     # * 
-            debug_print(num_prefill_query_tokens)
-
-            output[num_prefill_query_tokens:] = out.squeeze(1)
-
-
-            debug_print(output.shape) # * (0, 14, 64)
+            debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
+            debug_print(output.shape) # * (1, 14, 64)
 
             print('=' * 30 + 'pass decode' + '=' * 30)
 
@@ -1600,14 +1590,7 @@ def minference_vllm_forward(
 
 
         # Reshape the output tensor.
-        try: 
-            return output.view(num_tokens, hidden_size)
-        except:
-            debug_print(num_tokens)
-            debug_print(hidden_size)
-            debug_print(query.shape)
-            return output.view(0, hidden_size)
-        # return output.reshape(-1, num_tokens * hidden_size)
+        return output.view(num_tokens, hidden_size)
 
     assert vllm_version >= '0.9.0', 'check vllm version using `pip show vllm`'
 
