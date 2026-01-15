@@ -1551,7 +1551,7 @@ def minference_vllm_forward(
 
     assert vllm_version >= '0.9.0', 'check vllm version using `pip show vllm`'
 
-    if vllm_version in ["0.4.1", "0.9.0"]:
+    if vllm_version == "0.4.1":
         return forward
     # elif vllm_version == "0.4.2":
     #     return forward_vllm_042
