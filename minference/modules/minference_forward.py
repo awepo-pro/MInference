@@ -1479,6 +1479,8 @@ def minference_vllm_forward(
 
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
+
+        debug_print(attn_metadata)
         
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
