@@ -1583,7 +1583,7 @@ def minference_vllm_forward(
             )
 
             debug_print(out.shape)  # * (1, 1, 14, 64)
-            debug_print(output)     # * 
+            debug_print(output.shape)     # * 
             debug_print(num_prefill_query_tokens)
 
             output[num_prefill_query_tokens:] = out.squeeze(1)
