@@ -40,6 +40,23 @@ from ..ops.block_sparse_flash_attention import (
     block_sparse_attention_with_kvcache
 )
 
+import inspect
+
+
+def debug_print(var):
+    # Get the frame of the caller (the line that called debug_print)
+    frame = inspect.currentframe().f_back
+    
+    # 1. Get the line number
+    line_no = frame.f_lineno
+    
+    # 2. Extract variable name from the source code line
+    # Note: inspect.stack()[1][4] returns the source code of the calling line
+    line_code = inspect.stack()[1][4][0].strip()
+    var_name = line_code.split('(')[1].split(')')[0]
+    
+    print(f"line={line_no}, {var_name}={var}")
+
 # from ..ops.pit_sparse_flash_attention_v2 import vertical_slash_sparse_attention
 # from ..ops.streaming_kernel import streaming_forward, streaming_forward2
 # from .flexprefill import flexprefill_forward
@@ -834,8 +851,6 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
-    exit()
-
     def block_sparse_kernel(q, k, v, top_k=100):
         return block_sparse_attention(q, k, v, top_k)
 
@@ -1036,7 +1051,6 @@ def minference_vllm_forward(
         print(query.shape)
         print(key.shape)
         print(value.shape)
-        exit()
 
         assert query.shape[0] == num_prefill_tokens
         assert decode_query.shape[0] == num_decode_tokens
@@ -1307,7 +1321,8 @@ def minference_vllm_forward(
             if q.size(-2) != k.size(-2):
                 k = repeat_kv(k, q.size(-2) // k.size(-2))
                 v = repeat_kv(v, q.size(-2) // v.size(-2))
-                print(f'after grouped, {k.shape=}')
+                print('after grouped')
+                debug_print(k.shape)
 
 
             output = torch.empty_like(q)
@@ -1399,7 +1414,6 @@ def minference_vllm_forward(
                 out = out.transpose(1, 2).squeeze(0).contiguous()
                 output[:, head:head+1, :] = out
 
-            raise NotImplementedError('not yet impl')
             return output
             
 
@@ -1484,9 +1498,9 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                print(f'{query.shape=}')
-                print(f'{key.shape=}')
-                print(f'{value.shape=}')
+                debug_print(query.shape)
+                debug_print(key.shape)
+                debug_print(value.shape)
                 
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
