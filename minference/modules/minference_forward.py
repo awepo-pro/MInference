@@ -1321,9 +1321,8 @@ def minference_vllm_forward(
             if q.size(-2) != k.size(-2):
                 k = repeat_kv(k, q.size(-2) // k.size(-2))
                 v = repeat_kv(v, q.size(-2) // v.size(-2))
-                print('after grouped')
-                debug_print(k.shape)
 
+            assert k.shape == q.shape, f'{k.shape=} should be equivalent to {q.shape=}'
 
             output = torch.empty_like(q)
             head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
@@ -1498,9 +1497,12 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                debug_print(query.shape)
+                debug_print(query.shape)        # * (#batch=5, #head=14, headdim=64)
                 debug_print(key.shape)
                 debug_print(value.shape)
+                debug_print(num_prefill_query_tokens)
+                debug_print(num_prefill_kv_tokens)
+                debug_print(num_decode_query_tokens)
                 
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
@@ -1546,8 +1548,8 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            assert key_cache, 'key cache is impossible to be empty/uninit in decode phrase' 
-            assert value_cache, 'value cache is impossible to be empty/uninit in decode phrase'
+            if not kv_cache:
+                print('=' * 30, 'no key_cache!')
             
             output[num_prefill_query_tokens:] = flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),

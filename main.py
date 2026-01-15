@@ -11,10 +11,10 @@ def main() -> None:
     assert os.environ.get('VLLM_USE_V1') == '0', f'using v1, VLLM_USE_V1: {os.environ.get("VLLM_USE_V1")}'
     assert os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING') == '0', f'using multiprocessing, VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING")}'
     prompts = [
-        "Hello, my name is",
-        "The president of the United States is",
-        "The capital of France is",
-        "The future of AI is",
+        "Hello my name is",    # * 4 words
+        "The president of the United States is",    # * 7 words
+        "The capital of France is cold",    # * 6 words
+        "The future of AI is",      # * 5 words
     ]
 
     sampling_params = SamplingParams(
