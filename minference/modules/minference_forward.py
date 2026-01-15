@@ -1552,6 +1552,10 @@ def minference_vllm_forward(
             # Decoding run.
 
             debug_print(decode_query.shape)
+            debug_print(decode_meta)
+            debug_print(attn_metadata.prefill_metadata)
+
+            exit()
             debug_print(type(kv_cache))     # * tensor
             # debug_print(len(kv_cache))        # * 2 
 
