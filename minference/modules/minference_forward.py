@@ -847,7 +847,7 @@ def gather_qkv(q, k, v, attention_mask):
 # * it is an embed method in self.impl.forward
 def block_sparse_topk_vllm(self, q, k, v, head_id):
     # * q, k, v \in (batch=1, head=1, seqlen, head_size)
-    print(f'inside block_sparse_topk_vllm, {q.shape=}\n {k.shape=}\n {v.shape=}')
+    # print(f'inside block_sparse_topk_vllm, {q.shape=}\n {k.shape=}\n {v.shape=}')
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
@@ -1483,6 +1483,9 @@ def minference_vllm_forward(
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
+                debug_print(kv_cache.numel())
+                debug_print(prefill_meta.block_tables is None)
+                debug_print(prefill_meta.block_tables.numel())
                 # normal attention
                 # When block_tables are not filled, it means q and k are the
                 # prompt, and they have the same length.
@@ -1512,7 +1515,7 @@ def minference_vllm_forward(
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
-                print('=' * 30 + 'pass prefill' + '=' * 30)
+                # print('=' * 30 + 'pass prefill' + '=' * 30)
                 
                 output[:num_prefill_query_tokens] = out
             else:

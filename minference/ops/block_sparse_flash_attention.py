@@ -211,12 +211,12 @@ def _triton_block_sparse_attention(
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
 
     # * ================================ dbug print ========================================
-    debug_print(q.shape)
-    off_hz = grid[1]
-    H = q.shape[1]
-    debug_print(off_hz)
-    debug_print(off_hz // H)
-    debug_print(off_hz % H)
+    # debug_print(q.shape)
+    # off_hz = grid[1]
+    # H = q.shape[1]
+    # debug_print(off_hz)
+    # debug_print(off_hz // H)
+    # debug_print(off_hz % H)
 
     # * ====================================================================================
     
