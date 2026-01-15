@@ -121,15 +121,15 @@ def _triton_block_sparse_attn_fwd_kernel(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-    tl.print(f'{type(Q)=}')
-    tl.print(H)
-    tl.print(off_hz // H)
-    tl.print(off_hz % H)
-    tl.print(stride_qz)
-    tl.print(stride_qh)
-    tl.print(stride_qm)
-    tl.print(stride_qk)
-    tl.print(qo_offset)
+    tl.device_print(f'{type(Q)=}')
+    tl.device_print(H)
+    tl.device_print(off_hz // H)
+    tl.device_print(off_hz % H)
+    tl.device_print(stride_qz)
+    tl.device_print(stride_qh)
+    tl.device_print(stride_qm)
+    tl.device_print(stride_qk)
+    tl.device_print(qo_offset)
     
 
     # * start_point + batch_head_offset + block_offset + headdim_offset
@@ -138,7 +138,7 @@ def _triton_block_sparse_attn_fwd_kernel(
     v_ptrs = V      + kv_offset                               + offs_d[None, :] * stride_vk
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
 
-    tl.print(type(q_ptrs))
+    tl.device_print(type(q_ptrs))
 
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
