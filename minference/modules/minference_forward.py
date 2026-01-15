@@ -1580,11 +1580,11 @@ def minference_vllm_forward(
 
 
         debug_print(output.shape)
-        debug_print(output.reshape(-1, num_tokens * hidden_size))
+        debug_print(output.view(num_tokens, hidden_size).shape)
 
         # Reshape the output tensor.
-        # return output.view(num_tokens, hidden_size)
-        return output.reshape(-1, num_tokens * hidden_size)
+        return output.view(num_tokens, hidden_size)
+        # return output.reshape(-1, num_tokens * hidden_size)
 
     assert vllm_version >= '0.9.0', 'check vllm version using `pip show vllm`'
 
