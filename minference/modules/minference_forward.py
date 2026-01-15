@@ -1475,7 +1475,7 @@ def minference_vllm_forward(
         # QKV for prefill.
         query = query[:num_prefill_query_tokens]
         prefill_output = output[:num_prefill_query_tokens]
-        
+
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
         
@@ -1556,15 +1556,12 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
-            debug_print(decode_meta)        
-
-            debug_print(type(kv_cache))     # * tensor
-            # debug_print(len(kv_cache))        # * 2 
+            # debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
+            # debug_print(decode_meta)        
 
             key_cache, value_cache = kv_cache[0], kv_cache[1]
-            debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
-            debug_print(value_cache.shape)
+            # debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
+            # debug_print(value_cache.shape)
 
             assert num_prefill_query_tokens == 0, 'decode should only has 1 query'
             
@@ -1579,8 +1576,8 @@ def minference_vllm_forward(
                 alibi_slopes=self.alibi_slopes,
             ).squeeze(1)
 
-            debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
-            debug_print(output.shape) # * (1, 14, 64)
+            # debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
+            # debug_print(output.shape) # * (1, 14, 64)
 
             print('=' * 30 + 'pass decode' + '=' * 30)
 

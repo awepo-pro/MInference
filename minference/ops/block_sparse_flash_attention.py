@@ -10,6 +10,22 @@ import triton.language as tl
 # import pycuda.autoprimaryctx
 # from pycuda.compiler import SourceModule
 
+import inspect
+
+def debug_print(var):
+    # Get the frame of the caller (the line that called debug_print)
+    frame = inspect.currentframe().f_back
+    
+    # 1. Get the line number
+    line_no = frame.f_lineno
+    
+    # 2. Extract variable name from the source code line
+    # Note: inspect.stack()[1][4] returns the source code of the calling line
+    line_code = inspect.stack()[1][4][0].strip()
+    var_name = line_code.split('(')[1].split(')')[0]
+    
+    print(f"line={line_no}, {var_name}={var}")
+
 # * https://claude.ai/share/5645c803-86b6-4458-8d34-c60422975833
 def _build_block_index(
     query: torch.Tensor,     # [BATCH, N_HEADS, N_CTX, D_HEAD]
@@ -105,11 +121,24 @@ def _triton_block_sparse_attn_fwd_kernel(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
+    debug_print(type(Q))
+    debug_print(H)
+    debug_print(off_hz // H)
+    debug_print(off_hz % H)
+    debug_print(stride_qz)
+    debug_print(stride_qh)
+    debug_print(stride_qm)
+    debug_print(stride_qk)
+    debug_print(qo_offset)
+    
+
     # * start_point + batch_head_offset + block_offset + headdim_offset
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
     k_ptrs = K      + kv_offset                               + offs_d[:, None] * stride_kk
     v_ptrs = V      + kv_offset                               + offs_d[None, :] * stride_vk
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
+
+    debug_print(type(q_ptrs))
 
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
@@ -203,7 +232,7 @@ def _triton_block_sparse_attention(
 
 @triton.jit
 def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
-    Q,                            # * (b, h, seqlen, headdim)
+    Q,                            # * (b=1, h=1, seqlen, headdim)
     seqlens, 
     k_cache,
     v_cache,
@@ -250,6 +279,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * fetch kv from kv_cache
 
 
+
     # * offset of batch and head
     qo_offset = (off_hz // H) * stride_qz + (off_hz % H) * stride_qh
     kv_offset = (off_hz // H) * stride_kz + (off_hz % H) * stride_kh
@@ -257,6 +287,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
+
 
     # * start_point + batch_head_offset + block_offset + headdim_offset
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
