@@ -1068,7 +1068,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
     )
 
     from minference.modules.minference_forward import (
-        block_sparse_topk_vllm,
+        block_sparse_topk_vllm, block_sparse_topk_vllm_with_kvcache,
         minference_vllm_forward,
     )
 
@@ -1292,6 +1292,11 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
             m.block_sparse_topk_vllm = (
                 block_sparse_topk_vllm.__get__(m, m_cls)
             )
+
+            m.block_sparse_tok_vllm_with_kvcache = (
+                block_sparse_topk_vllm_with_kvcache.__get__(m, m_cls)
+            )
+            
             # * note: this is second assignment, m is not Attnetion class anymore, instead, it is one backend (read vllm_attn_forward) class.
             # * above backend might not support block-sparse attention yet.
 
