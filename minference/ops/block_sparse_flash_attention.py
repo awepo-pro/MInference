@@ -242,9 +242,9 @@ def _triton_block_sparse_attention(
 def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     Q,                            # * (b=1, h=1, seqlen, headdim)
     seqlens, 
-    k_cache,
+    k_cache,                        # * (#block, block_size=256, #kv_head=1, headdim)
     v_cache,
-    block_tables,                 # * (#batch, max_num_block_per_seq=max_seq / block), max_seq := max model len, block := 16 (by default)
+    block_tables,                 # * (#batch=1, max_num_block_per_seq=max_seq / block), max_seq := max model len, block := 16 (by default)
     bt_batchs,                     # * #batch                in block_tables
     bt_blocks,                     # * max_num_block_per_seq in block_tables
     sm_scale,
@@ -262,29 +262,31 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     dtype: tl.constexpr,
 ):
     # * ceil_div(seqlen, block_size_M), index of starting block
-    start_m = tl.program_id(0)
+    start_n = tl.program_id(0)
     # * b \times h
     off_hz = tl.program_id(1)
 
     # * seqlen of corresponding batch
     seqlen = tl.load(seqlens + off_hz // H)
     # * do nothing if padding
-    if start_m * BLOCK_M >= seqlen:
+    if start_n * BLOCK_M >= seqlen:
         return
 
     # initialize offsets
     # * we treat QKV as \in (b, h, seqlen // block_size_M, headdim)
 
-    # * start_m * block_M := starting position of current block (among seqlen // block_size_M)
+    # * start_n * block_M := starting position of current block (among seqlen // block_size_M)
     # *     - 4 blocks in 1 head (seqlen = 128) -> 1st: [0, 32), 2nd: [32, 64), 3th: [64, 96), 4th: [96, 128)
     # *     - now in 3th -> start * block_M = 64; +tl.arange(0, block_M) := [32, 64)
 
     # * converted into list with `tl.arange` to get the exact location of each elements
-    offs_m = start_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_m = start_n * BLOCK_M + tl.arange(0, BLOCK_M)
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
 
     # * fetch kv from kv_cache
+    # * TODO: compute offset (review video first in my phone)
+    page_block = 
 
 
 
@@ -304,8 +306,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
 
     # * NUM_ROWS := no. of rows in each block
-    # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
-    blocks_ptr = block_index + (off_hz * NUM_ROWS + start_m) * MAX_BLOCKS_PRE_ROW
+    # * off_hz * NUM_ROWS := move to the current head; start_n := determine current block
+    blocks_ptr = block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW
 
     # initialize pointer to m and l
     m_i = tl.zeros([BLOCK_M], dtype=tl.float32) - float("inf")
@@ -322,7 +324,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
     # loop over k, v and update accumulator
     m_mask = offs_m[:, None] < seqlen
-    block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
+    block_count = tl.minimum((start_n + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
 
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
@@ -375,13 +377,14 @@ def _triton_block_sparse_attention_with_kvcache(
     # * ================================================= dbug =====================================================
     debug_print(q.shape)
     debug_print(block_tables.shape)
-    debug_print(seqlens)
+    debug_print(seqlens)    # * check if it is q or k len
     debug_print(block_index.shape)
     
     # * ============================================================================================================
 
     o = torch.zeros_like(q)
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
+    # grid = (triton.cdiv(q.shape[2], block_size_M), triton.cdiv(k_len, block_size_N), q.shape[0] * q.shape[1])
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
     
     _triton_block_sparse_attn_fwd_kernel_with_kvcache[grid](

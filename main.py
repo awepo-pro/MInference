@@ -35,6 +35,8 @@ def main() -> None:
         dtype='float16',
         max_model_len=12800,
         block_size=256,
+        enable_chunked_prefill=True,
+        
     )
 
     # Patch MInference Module

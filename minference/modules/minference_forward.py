@@ -872,7 +872,7 @@ def block_sparse_topk_vllm_with_kvcache(
         q,                  # * (batch=1, #head=1, total_tokens, headdim) 
         k, 
         v,
-        k_cache,            # * (#block, max_num_block_per_seq, #head=1, headdim)
+        k_cache,            # * (#block, block_size, #head=1, headdim)
         v_cache,
         # cu_seqlens_q,       # * (#batch + 1)
         # max_seqlen_q,
@@ -1088,8 +1088,6 @@ def minference_vllm_forward(
                 # TODO(Hai) this triton kernel has regression issue (broke) to
                 # deal with different data types between KV and FP8 KV cache,
                 # to be addressed separately.
-                # * it is still prefill phrase, however, kv_cache could be used
-                # * TODO: seems that no sparse attention in this paged attention, this is our goal
 
                 # output[:num_prefill_tokens] = PagedAttention.forward_prefix(
                 #     query,
@@ -1394,7 +1392,7 @@ def minference_vllm_forward(
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
 
-                # * 1 head of kv cache, (#block, max_num_block_per_seq, #head=1, headdim)
+                # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
                 k_head_cache = k_cache[:, :, head, :]
                 v_head_cache = v_cache[:, :, head, :]
 
@@ -1402,7 +1400,7 @@ def minference_vllm_forward(
                     q_head, 
                     k_head,
                     v_head,
-                    k_head_cache,
+                    k_head_cache,       # * (#block, block_size, #head=1, headdim)
                     v_head_cache,
                     # cu_seqlens_q,
                     # max_seqlen_q,
@@ -1513,12 +1511,12 @@ def minference_vllm_forward(
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
-                # print('=' * 30 + 'pass prefill' + '=' * 30)
+                print('=' * 30 + 'pass prefill' + '=' * 30)
                 
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention
-                assert False
+                # assert False
                 assert prefill_meta.seq_lens is not None
                 max_seq_len = max(prefill_meta.seq_lens)
                 # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
@@ -1589,7 +1587,7 @@ def minference_vllm_forward(
             # debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
             # debug_print(output.shape) # * (1, 14, 64)
 
-            # print('=' * 30 + 'pass decode' + '=' * 30)
+            print('=' * 30 + 'pass decode' + '=' * 30)
 
 
         # debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode
