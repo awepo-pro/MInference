@@ -1535,10 +1535,6 @@ def minference_vllm_forward(
 
                 print(f'=' * 30, 'prefix enabled')
 
-                assert key_cache, 'key cache is impossible to be empty/uninit in decode phrase' 
-                assert value_cache, 'value cache is impossible to be empty/uninit in decode phrase'
-
-
                 output = minference_prefill_kvcache_func(
                     query,
                     key,
