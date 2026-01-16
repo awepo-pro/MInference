@@ -286,7 +286,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
     # * fetch kv from kv_cache
     # * TODO: compute offset (review video first in my phone)
-    page_block = 
+    # page_block = 
 
 
 
@@ -376,9 +376,11 @@ def _triton_block_sparse_attention_with_kvcache(
 
     # * ================================================= dbug =====================================================
     debug_print(q.shape)
+    # debug_print(k.shape)
     debug_print(block_tables.shape)
     debug_print(seqlens)    # * check if it is q or k len
     debug_print(block_index.shape)
+    debug_print(seqlens == q.shape[2])
     
     # * ============================================================================================================
 
