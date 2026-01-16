@@ -1432,6 +1432,8 @@ def minference_vllm_forward(
         value_cache = kv_cache[1]
 
         if kv_cache.numel() > 0:
+            print('=' * 30, 'enable kv cache', '=' * 30)
+            debug_print(kv_cache.numel())
             # We skip updating the KV cache under two conditions:
             #  a. When the Attention Type is ENCODER. In this phase, we compute
             #     only the encoder attention without updating the cache.
