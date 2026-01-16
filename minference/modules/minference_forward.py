@@ -1516,6 +1516,10 @@ def minference_vllm_forward(
                 # prefix-enabled attention
                 # assert False
                 assert prefill_meta.seq_lens is not None
+
+                debug_print(prefill_meta)
+                exit()
+                
                 max_seq_len = max(prefill_meta.seq_lens)
                 # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
                 #     q=query,

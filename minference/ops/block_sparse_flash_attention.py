@@ -373,10 +373,10 @@ def _triton_block_sparse_attention_with_kvcache(
     assert q.shape[0] == 1, f'batch size should be 1, but ({q.shape[0]})'
 
     # * ================================================= dbug =====================================================
-    debug_print(q.shape)
+    debug_print(q.shape)                # * (1, 1, 512, 64)
     # debug_print(k.shape)
     debug_print(block_tables.shape)
-    debug_print(seqlens)    # * check if it is q or k len
+    debug_print(seqlens)                # * 459,         TODO:check if it is q or k len
     debug_print(block_index.shape)
     debug_print(seqlens == q.shape[2])
     
