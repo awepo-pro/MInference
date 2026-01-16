@@ -1293,7 +1293,7 @@ def minference_patch_vllm_executor(config_file: str, patch_config={}):
                 block_sparse_topk_vllm.__get__(m, m_cls)
             )
 
-            m.block_sparse_tok_vllm_with_kvcache = (
+            m.block_sparse_topk_vllm_with_kvcache = (
                 block_sparse_topk_vllm_with_kvcache.__get__(m, m_cls)
             )
             
