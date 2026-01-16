@@ -1497,7 +1497,7 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                # debug_print(prefill_meta)
+                debug_print(prefill_meta)
 
                 # debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
