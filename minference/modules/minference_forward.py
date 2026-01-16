@@ -1363,7 +1363,6 @@ def minference_vllm_forward(
             assert v_cache.stride(-1) == 1, "v_cache must have contiguous last dimension"
 
             q = q.contiguous() if q.stride(-1) != 1 else q
-            batch_size, seqlen, num_heads, head_dim = q.shape
 
             # (seq_len, num_heads, head_size)
             if q.size(-2) != k.size(-2):
