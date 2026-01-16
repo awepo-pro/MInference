@@ -251,8 +251,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     block_index,                        # * (b, h, ceil_div(seqlen, block_size_M), topk=MAX_BLOCKS_PER_ROW)
     Out,
     stride_qz, stride_qh, stride_qm, stride_qk,
-    stride_kz, stride_kh, stride_kn, stride_kk,
-    stride_vz, stride_vh, stride_vn, stride_vk,
     stride_oz, stride_oh, stride_om, stride_ok,
     Z, H, N_CTX,
     NUM_ROWS, MAX_BLOCKS_PRE_ROW,
