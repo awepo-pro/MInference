@@ -45,6 +45,7 @@ import inspect
 
 def debug_print(var):
     # Get the frame of the caller (the line that called debug_print)
+    return None
     frame = inspect.currentframe().f_back
     
     # 1. Get the line number

@@ -13,6 +13,7 @@ import triton.language as tl
 import inspect
 
 def debug_print(var, comment=""):
+    return None
     print(comment, end='')
     # Get the frame of the caller (the line that called debug_print)
     frame = inspect.currentframe().f_back
