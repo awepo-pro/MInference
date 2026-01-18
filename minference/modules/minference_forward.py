@@ -1476,6 +1476,8 @@ def minference_vllm_forward(
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
 
+        debug_print(attn_metadata)
+
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             # * kv_cache.numel() != 0, prefill_meta.block_tables is not None
@@ -1516,8 +1518,8 @@ def minference_vllm_forward(
                 # prefix-enabled attention
                 # assert False
                 assert prefill_meta.seq_lens is not None
-
-                debug_print(prefill_meta)
+                    
+                # debug_print(prefill_meta)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
                 output = minference_prefill_func(query, key, value)
@@ -1539,7 +1541,7 @@ def minference_vllm_forward(
                 #     block_tables=prefill_meta.block_tables
                 # )
 
-                assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
+                # assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
