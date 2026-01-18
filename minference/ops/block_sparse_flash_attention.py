@@ -541,6 +541,9 @@ def _build_block_index_with_kvcache(
     arange_M = torch.arange(query_pool.shape[-2], dtype=torch.int32, device=query.device) * block_size_M
     arange_N = torch.arange(key_pool.shape[-2], dtype=torch.int32, device=key.device) * block_size_N
 
+    debug_print(query_pool.shape)
+    debug_print(key_pool)
+
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
@@ -584,9 +587,14 @@ def block_sparse_attention_with_kvcache(
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
     
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
-    query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
-    key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
-    value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
+
+    if q_pad != 0:
+        query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
+
+    kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
+    if kv_pad != 0:
+        key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
+        value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
     debug_print(q_pad)
     debug_print(query.shape)
