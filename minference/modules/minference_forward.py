@@ -1409,11 +1409,17 @@ def minference_vllm_forward(
                     # cu_seqlens_k, 
                     # max_seqlen_k,
                     block_tables,
-                    attn_metadata.seq_lens)
+                    attn_metadata.seq_lens)     # * out / in [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
 
+                debug_print(out.shape)
+
+                # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
+                debug_print(out.shape)
                 # output[:, head:head+1, :] = out
-                output[:, head, :] = out
+                output[:, head:head+1, :] = out
+
+                exit()
 
             return output
             
