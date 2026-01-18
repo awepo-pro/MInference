@@ -1554,7 +1554,7 @@ def minference_vllm_forward(
                     block_tables=prefill_meta.block_tables
                 )
 
-                assert output.shape[0] == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
+                assert output.shape[0] == num_prefill_query_tokens, f'output size =({output.shape} not equivalent to {num_prefill_query_tokens}); actually not really if padded output, remove this line if necessary'
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
