@@ -878,7 +878,8 @@ def block_sparse_topk_vllm_with_kvcache(
         # max_seqlen_q,
         # cu_seqlens_k, 
         # max_seqlen_k,
-        block_tables        # * (#batch, max_num_block_per_seq)
+        block_tables,        # * (#batch, max_num_block_per_seq)
+        seq_lens,            # * (#batch)
     ) -> torch.Tensor:
     
     # * q \in (batch=1, head=1, total_tokens, head_size)
@@ -893,12 +894,14 @@ def block_sparse_topk_vllm_with_kvcache(
             # cu_seqlens_q, max_seqlne_q,
             # cu_seqlens_k, max_seqlen_k,
             block_tables,
+            seq_lens: torch.Tensor, 
             top_k=100) -> torch.Tensor:
         return block_sparse_attention_with_kvcache(
             q, k, v,
             k_cache, v_cache,
             block_tables,
-            top_k)
+            top_k,
+            seq_lens)
 
     def dense(q, k, v):
         return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
@@ -917,7 +920,8 @@ def block_sparse_topk_vllm_with_kvcache(
         # max_seqlen_q,
         # cu_seqlens_k, 
         # max_seqlen_k,
-        block_tables)        # * (#batch, max_num_block_per_seq)
+        block_tables,
+        seq_lens)        # * (#batch, max_num_block_per_seq)
 
 
 def minference_vllm_forward(
@@ -1404,7 +1408,8 @@ def minference_vllm_forward(
                     # max_seqlen_q,
                     # cu_seqlens_k, 
                     # max_seqlen_k,
-                    block_tables)
+                    block_tables,
+                    attn_metadata.seq_lens)
 
                 out = out.transpose(1, 2).squeeze(0).contiguous()
                 # output[:, head:head+1, :] = out

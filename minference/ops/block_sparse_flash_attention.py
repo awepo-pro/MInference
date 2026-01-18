@@ -326,7 +326,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     q = (q * qk_scale).to(dtype)
 
     # loop over k, v and update accumulator
-    m_mask = offs_m[:, None] < seqlen
+    m_mask = offs_m[:, None] < k_seqlen
     block_count = tl.minimum((start_n + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
 
     for sparse_block_idx in range(block_count):
@@ -415,6 +415,7 @@ def _triton_block_sparse_attention_with_kvcache(
         k_seqlen,
         block_tables,
         block_tables.shape[0], block_tables.shape[1],
+        block_tables.stride(0), block_tables.stride(1),
         sm_scale,
         block_index,
         o,
@@ -427,7 +428,7 @@ def _triton_block_sparse_attention_with_kvcache(
         BLOCK_M=block_size_M, BLOCK_N=block_size_N,
         BLOCK_DMODEL=headdim,
         dtype=dtype,
-        num_warps=4, num_stages=2,
+        # num_warps=4, num_stages=2,
         BLOCK_SIZE=BLOCK_SIZE
     )
 
@@ -465,7 +466,7 @@ def block_sparse_attention(
     return out[..., :context_size, :]
 
 
-def get_full_key_from_cache(k_cache, block_tables):
+def get_full_key_from_cache(k_cache, block_tables, seqlen):
     """
     Reconstruct full key tensor from paged k_cache.
     
@@ -485,10 +486,13 @@ def get_full_key_from_cache(k_cache, block_tables):
     num_kv_heads = k_cache.shape[2]
     head_dim = k_cache.shape[3]
 
+    # Calculate number of blocks needed for seqlen
+    num_blocks_needed = (seqlen + block_size - 1) // block_size if seqlen != -1 else block_tables.shape[1]
+    
     # Gather blocks for each sequence in batch
     # block_tables: (#batch, max_block_per_seq)
     # We take only the first num_blocks_needed blocks
-    block_indices = block_tables[:, :]  # (#batch, num_blocks_needed)
+    block_indices = block_tables[:, :num_blocks_needed]  # (#batch, num_blocks_needed)
     
     # Gather the blocks from k_cache
     # k_cache[block_indices] would give us (#batch, num_blocks_needed, block_size, #kv_head, headdim)
@@ -496,7 +500,10 @@ def get_full_key_from_cache(k_cache, block_tables):
     
     # Reshape to merge blocks into sequence dimension
     # (#batch, num_blocks_needed * block_size, #kv_head, headdim)
-    full_key = gathered_blocks.reshape(batch_size, -1, num_kv_heads, head_dim)
+    full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
+    
+    # Trim to actual sequence length
+    full_key = full_key[:, :seqlen, :, :]  # (#batch, seqlen, #kv_head, headdim)
     
     # Transpose to match desired output shape: (#batch, #kv_head, seqlen, headdim)
     full_key = full_key.transpose(1, 2)  # (#batch, #kv_head, seqlen, headdim)
@@ -511,14 +518,13 @@ def _build_block_index_with_kvcache(
     k_cache: torch.Tensor,       # * (#block, block_size, #kv_head=1, headdim)
     block_tables: torch.Tensor,     # * (#batch=1, max_block_per_seq)
     top_k: int,
+    k_seqlen,
     block_size_M: int = 64,
     block_size_N: int = 64,
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
 
-    key = get_full_key_from_cache(k_cache, block_tables)
-
-    debug_print(key.shape)
+    key = get_full_key_from_cache(k_cache, block_tables, k_seqlen)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
@@ -553,6 +559,7 @@ def block_sparse_attention_with_kvcache(
     v_cache: torch.Tensor,
     block_tables: torch.Tensor,             # * (#batch, block_size), #batch == 1
     top_k: int,
+    k_seqlen: torch.Tensor,
     block_size_M: int = 64, # might change to 16 (follow vllm block size)
     block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
@@ -569,12 +576,12 @@ def block_sparse_attention_with_kvcache(
     value = torch.nn.functional.pad(value, [0, 0, 0, pad, 0, 0, 0, 0])
 
     q_seqlen = query.shape[-2]
-    k_seqlen = key.shape[-2]
 
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
+        k_seqlen[0],
         block_size_N, block_size_N)
     
     out = _triton_block_sparse_attention_with_kvcache(
