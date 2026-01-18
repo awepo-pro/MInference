@@ -550,11 +550,11 @@ def _build_block_index_with_kvcache(
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
 
     # * top_k cannot exceed p_pool[-1] dimension
-    top_k = min(top_k, context_size // block_size_N)
+    top_k = min(top_k, k_seqlen // block_size_N)
 
-    debug_print(context_size)
+    debug_print(k_seqlen)
     debug_print(block_size_N)
-    debug_print(context_size // block_size_N)
+    debug_print(k_seqlen // block_size_N)
     debug_print(top_k)
     debug_print(p_pool.shape)
     
@@ -588,11 +588,11 @@ def block_sparse_attention_with_kvcache(
     
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
 
-    if q_pad != 0:
+    if q_pad != block_size_M:
         query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
     kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
-    if kv_pad != 0:
+    if kv_pad != block_size_N:
         key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
         value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
