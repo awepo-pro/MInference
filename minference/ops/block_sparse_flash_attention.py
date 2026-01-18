@@ -525,6 +525,7 @@ def _build_block_index_with_kvcache(
     batch_size, num_heads, context_size, head_dim = query.shape
 
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen)
+    debug_print(key.shape)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
@@ -544,6 +545,9 @@ def _build_block_index_with_kvcache(
 
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, context_size // block_size_N)
+    
+    debug_print(top_k)
+    debug_print(p_pool.shape)
     
     # * find topk row by row,
     # * topk.indices \in (b, h, m, topk), topk := scalar
