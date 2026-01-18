@@ -486,7 +486,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen=-1):
     head_dim = k_cache.shape[3]
 
     # Calculate number of blocks needed for seqlen
-    num_blocks_needed = (seqlen + block_size - 1) // block_size if seqlen != -1 else block_tables.shape[2]
+    num_blocks_needed = (seqlen + block_size - 1) // block_size if seqlen != -1 else block_tables.shape[1]
     
     # Gather blocks for each sequence in batch
     # block_tables: (#batch, max_block_per_seq)
