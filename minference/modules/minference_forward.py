@@ -1391,8 +1391,8 @@ def minference_vllm_forward(
                 v_head = v_head.transpose(1, 2)
 
                 # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
-                k_head_cache = k_cache[:, :, head, :]
-                v_head_cache = v_cache[:, :, head, :]
+                k_head_cache = k_cache[:, :, head, :].unsqueeze(2)
+                v_head_cache = v_cache[:, :, head, :].unsqueeze(2)
 
                 out = self.block_sparse_topk_vllm_with_kvcache(
                     q_head, 
