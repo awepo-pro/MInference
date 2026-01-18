@@ -1416,10 +1416,9 @@ def minference_vllm_forward(
                 # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
                 debug_print(out.shape)
-                # output[:, head:head+1, :] = out
-                output[:, head:head+1, :] = out
 
-                exit()
+                # * cannot use output[:, head, :] since it immediately squeeze out the middle dimension
+                output[:, head:head+1, :] = out
 
             return output
             
