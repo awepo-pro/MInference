@@ -524,6 +524,8 @@ def _build_block_index_with_kvcache(
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
 
+    debug_print(k_seqlen)
+
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen)
     debug_print(key.shape)
     debug_print(query.shape)
@@ -576,10 +578,12 @@ def block_sparse_attention_with_kvcache(
     assert num_heads == 1, f'{num_heads=} != 1'
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
     
-    pad = block_size_M - (query.shape[2] & (block_size_M - 1))
-    query = torch.nn.functional.pad(query, [0, 0, 0, pad, 0, 0, 0, 0])
-    key = torch.nn.functional.pad(key, [0, 0, 0, pad, 0, 0, 0, 0])
-    value = torch.nn.functional.pad(value, [0, 0, 0, pad, 0, 0, 0, 0])
+    q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
+    query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
+    key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
+    value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
+
+    all_kv_pad = int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
 
     q_seqlen = query.shape[-2]
 
@@ -587,7 +591,7 @@ def block_sparse_attention_with_kvcache(
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
-        k_seqlen[0],
+        all_kv_pad,
         block_size_N, block_size_N)
     
     out = _triton_block_sparse_attention_with_kvcache(
