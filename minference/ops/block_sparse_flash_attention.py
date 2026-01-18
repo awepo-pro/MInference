@@ -477,6 +477,9 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen=-1):
     Returns:
         key: (#batch, #kv_head, seqlen, headdim)
     """
+
+    debug_print(k_cache.shape)
+    
     batch_size = block_tables.shape[0]
     block_size = k_cache.shape[1]
     num_kv_heads = k_cache.shape[2]
