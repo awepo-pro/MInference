@@ -572,9 +572,6 @@ def block_sparse_attention_with_kvcache(
     q_seqlen = query.shape[-2]
     k_seqlen = key.shape[-2]
 
-    if block_tables.
-    assert get_full_key_from_cache(k_cache, block_tables) ==
-
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
