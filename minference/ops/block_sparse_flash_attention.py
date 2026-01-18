@@ -465,7 +465,7 @@ def block_sparse_attention(
     return out[..., :context_size, :]
 
 
-def get_full_key_from_cache(k_cache, block_tables, seqlen=-1):
+def get_full_key_from_cache(k_cache, block_tables):
     """
     Reconstruct full key tensor from paged k_cache.
     
@@ -485,13 +485,10 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen=-1):
     num_kv_heads = k_cache.shape[2]
     head_dim = k_cache.shape[3]
 
-    # Calculate number of blocks needed for seqlen
-    num_blocks_needed = (seqlen + block_size - 1) // block_size if seqlen != -1 else block_tables.shape[1]
-    
     # Gather blocks for each sequence in batch
     # block_tables: (#batch, max_block_per_seq)
     # We take only the first num_blocks_needed blocks
-    block_indices = block_tables[:, :num_blocks_needed]  # (#batch, num_blocks_needed)
+    block_indices = block_tables[:, :]  # (#batch, num_blocks_needed)
     
     # Gather the blocks from k_cache
     # k_cache[block_indices] would give us (#batch, num_blocks_needed, block_size, #kv_head, headdim)
@@ -499,10 +496,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen=-1):
     
     # Reshape to merge blocks into sequence dimension
     # (#batch, num_blocks_needed * block_size, #kv_head, headdim)
-    full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
-    
-    # Trim to actual sequence length
-    full_key = full_key[:, :seqlen, :, :]  # (#batch, seqlen, #kv_head, headdim)
+    full_key = gathered_blocks.reshape(batch_size, -1, num_kv_heads, head_dim)
     
     # Transpose to match desired output shape: (#batch, #kv_head, seqlen, headdim)
     full_key = full_key.transpose(1, 2)  # (#batch, #kv_head, seqlen, headdim)
@@ -523,6 +517,8 @@ def _build_block_index_with_kvcache(
     batch_size, num_heads, context_size, head_dim = query.shape
 
     key = get_full_key_from_cache(k_cache, block_tables)
+
+    debug_print(key.shape)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
