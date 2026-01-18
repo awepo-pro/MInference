@@ -159,9 +159,6 @@ def _triton_block_sparse_attn_fwd_kernel(
     m_mask = offs_m[:, None] < seqlen
     block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
 
-    if start_m == 0:
-        tl.device_print("block_count: ", block_count)
-
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
         start_n = real_block_idx * BLOCK_N

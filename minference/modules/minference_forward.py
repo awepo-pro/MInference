@@ -1509,7 +1509,7 @@ def minference_vllm_forward(
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
-                print('=' * 30 + 'pass prefill' + '=' * 30)
+                # print('=' * 30 + 'pass prefill' + '=' * 30)
                 
                 output[:num_prefill_query_tokens] = out
             else:
@@ -1518,38 +1518,26 @@ def minference_vllm_forward(
                 assert prefill_meta.seq_lens is not None
 
                 debug_print(prefill_meta)
-                exit()
-                
-                max_seq_len = max(prefill_meta.seq_lens)
-                # output[:num_prefill_query_tokens] = flash_attn_varlen_func(
-                #     q=query,
-                #     k=key_cache,
-                #     v=value_cache,
-                #     cu_seqlens_q=prefill_meta.query_start_loc,
-                #     max_seqlen_q=prefill_meta.max_query_len,
-                #     cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     max_seqlen_k=max_seq_len,
-                #     softmax_scale=self.scale,
+                # max_seq_len = max(prefill_meta.seq_lens)
+
+                output = minference_prefill_func(query, key, value)
+
+
+                # print(f'=' * 30, 'prefix enabled')
+
+                # output = minference_prefill_kvcache_func(
+                #     query,
+                #     key,
+                #     value,
+                #     key_cache,
+                #     value_cache,
+                #     # cu_seqlens_q=prefill_meta.query_start_loc,
+                #     # max_seqlen_q=prefill_meta.max_query_len,
+                #     # cu_seqlens_k=prefill_meta.seq_start_loc,
+                #     # max_seqlen_k=max_seq_len,
                 #     causal=True,
-                #     alibi_slopes=self.alibi_slopes,
-                #     block_table=prefill_meta.block_tables,
+                #     block_tables=prefill_meta.block_tables
                 # )
-
-                print(f'=' * 30, 'prefix enabled')
-
-                output = minference_prefill_kvcache_func(
-                    query,
-                    key,
-                    value,
-                    key_cache,
-                    value_cache,
-                    # cu_seqlens_q=prefill_meta.query_start_loc,
-                    # max_seqlen_q=prefill_meta.max_query_len,
-                    # cu_seqlens_k=prefill_meta.seq_start_loc,
-                    # max_seqlen_k=max_seq_len,
-                    causal=True,
-                    block_tables=prefill_meta.block_tables
-                )
 
                 assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
@@ -1582,7 +1570,7 @@ def minference_vllm_forward(
             # debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
             # debug_print(output.shape) # * (1, 14, 64)
 
-            print('=' * 30 + 'pass decode' + '=' * 30)
+            # print('=' * 30 + 'pass decode' + '=' * 30)
 
 
         # debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode
