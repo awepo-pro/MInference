@@ -589,10 +589,12 @@ def block_sparse_attention_with_kvcache(
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
 
     if q_pad != block_size_M:
+        debug_print(block_size_M)
         query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
     kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
     if kv_pad != block_size_N:
+        debug_print(block_size_N)
         key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
         value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
