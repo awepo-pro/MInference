@@ -549,6 +549,8 @@ def _build_block_index_with_kvcache(
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, context_size // block_size_N)
 
+    debug_print(context_size)
+    debug_print(block_size_N)
     debug_print(context_size // block_size_N)
     debug_print(top_k)
     debug_print(p_pool.shape)
@@ -571,6 +573,9 @@ def block_sparse_attention_with_kvcache(
     block_size_M: int = 64, # might change to 16 (follow vllm block size)
     block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
+    
+    debug_print(query.shape)
+    debug_print(key.shape)
     
     batch_size, num_heads, context_size, head_dim = query.shape
 
