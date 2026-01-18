@@ -601,7 +601,10 @@ def block_sparse_attention_with_kvcache(
     debug_print(query.shape)
     debug_print(key.shape)
 
-    all_kv_pad = int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
+    all_kv_pad = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
+    debug_print(k_seqlen[0])
+    debug_print(all_kv_pad)
+    debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
     q_seqlen = query.shape[-2]
 
