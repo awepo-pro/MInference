@@ -1499,7 +1499,7 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                debug_print(prefill_meta)
+                # debug_print(prefill_meta)
 
                 # debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
@@ -1559,10 +1559,7 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            debug_print(decode_meta.block_tables.numel())
-
-            if decode_meta.block_tables.numel() != 0:
-                debug_print(decode_meta.block_tables)
+            # debug_print(decode_meta.block_tables.numel()) # * must exist blocks in block tables
 
             # debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
             # debug_print(decode_meta)        
