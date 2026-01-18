@@ -1373,6 +1373,8 @@ def minference_vllm_forward(
                 k = repeat_kv(k, q.size(-2) // k.size(-2))
                 v = repeat_kv(v, q.size(-2) // v.size(-2))
 
+                assert k.shape == q.shape, f'{k.shape=} != {q.shape=}'
+
             output = torch.empty_like(q)
             # head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
 
@@ -1397,6 +1399,7 @@ def minference_vllm_forward(
                 # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
                 debug_print(k_cache.shape)
                 debug_print(k_cache[:, :, head, :].shape)
+
                 k_head_cache = k_cache[:, :, head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, head, :].unsqueeze(2)
 
