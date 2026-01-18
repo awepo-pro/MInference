@@ -588,6 +588,10 @@ def block_sparse_attention_with_kvcache(
     key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
     value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
+    debug_print(q_pad)
+    debug_print(query.shape)
+    debug_print(key.shape)
+
     all_kv_pad = int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
 
     q_seqlen = query.shape[-2]
