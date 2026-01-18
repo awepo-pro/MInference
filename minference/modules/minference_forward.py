@@ -1540,7 +1540,7 @@ def minference_vllm_forward(
 
                 # print(f'=' * 30, 'prefix enabled')
 
-                output = minference_prefill_kvcache_func(
+                output[:num_prefill_query_tokens] = minference_prefill_kvcache_func(
                     query,
                     key,
                     value,
@@ -1554,7 +1554,7 @@ def minference_vllm_forward(
                     block_tables=prefill_meta.block_tables
                 )
 
-                assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
+                assert output.shape[0] == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
