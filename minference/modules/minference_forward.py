@@ -1522,26 +1522,23 @@ def minference_vllm_forward(
                 # debug_print(prefill_meta)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
-                output = minference_prefill_func(query, key, value)
-
-
                 # print(f'=' * 30, 'prefix enabled')
 
-                # output = minference_prefill_kvcache_func(
-                #     query,
-                #     key,
-                #     value,
-                #     key_cache,
-                #     value_cache,
-                #     # cu_seqlens_q=prefill_meta.query_start_loc,
-                #     # max_seqlen_q=prefill_meta.max_query_len,
-                #     # cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     # max_seqlen_k=max_seq_len,
-                #     causal=True,
-                #     block_tables=prefill_meta.block_tables
-                # )
+                output = minference_prefill_kvcache_func(
+                    query,
+                    key,
+                    value,
+                    key_cache,
+                    value_cache,
+                    # cu_seqlens_q=prefill_meta.query_start_loc,
+                    # max_seqlen_q=prefill_meta.max_query_len,
+                    # cu_seqlens_k=prefill_meta.seq_start_loc,
+                    # max_seqlen_k=max_seq_len,
+                    causal=True,
+                    block_tables=prefill_meta.block_tables
+                )
 
-                # assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
+                assert output.shape == (num_prefill_query_tokens, ), f'output size =({output.shape} not equivalent to {num_prefill_query_tokens})'
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
