@@ -333,8 +333,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
         start_n = real_block_idx * BLOCK_N
 
-        bt_index = int(start_n / BLOCK_SIZE)     # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
-        bt_block_index = int(start_n // BLOCK_SIZE)    # * bt_block_index := exact block inside that block table
+        bt_index = start_n // BLOCK_SIZE     # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
+        bt_block_index = start_n % BLOCK_SIZE    # * bt_block_index := exact block inside that block table
 
         logical_idx = block_tables \
                         + 0 * stride_bt_a \
