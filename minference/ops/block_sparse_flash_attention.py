@@ -542,7 +542,7 @@ def _build_block_index_with_kvcache(
     arange_N = torch.arange(key_pool.shape[-2], dtype=torch.int32, device=key.device) * block_size_N
 
     debug_print(query_pool.shape)
-    debug_print(key_pool)
+    debug_print(key_pool.shape)
 
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
