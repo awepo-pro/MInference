@@ -251,7 +251,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     stride_vblock, stride_vblock_size, stride_num_vhead, stride_v_headdim,
     stride_oz, stride_oh, stride_om, stride_ok,
     Z: tl.constexpr, H: tl.constexpr, N_CTX: tl.constexpr,                        # * Z, H, N_CTX := q.shape[0, 1, 2]
-    NUM_ROWS: tl.constexpr, MAX_BLOCKS_PRE_ROW: tl.constexpr,
+    NUM_ROWS: tl.constexpr, MAX_BLOCKS_PER_ROW: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_DMODEL: tl.constexpr,
