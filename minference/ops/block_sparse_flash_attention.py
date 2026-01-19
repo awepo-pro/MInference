@@ -336,6 +336,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
         # * block table (logical_index), block_size
         k_ptrs += logical_index * stride_kblock + bt_block_index * stride_kblock_size
+        v_ptrs += logical_index * stride_vblock + bt_block_index * stride_vblock_size
 
         # -- load k, v --
         k = tl.load(k_ptrs + offs_n[None, :])
