@@ -250,7 +250,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     stride_kblock, stride_kblock_size, stride_num_khead, stride_k_headdim,     
     stride_vblock, stride_vblock_size, stride_num_vhead, stride_v_headdim,
     stride_oz, stride_oh, stride_om, stride_ok,
-    Z, H, N_CTX,
+    Z, H, N_CTX,                        # * Z, H, N_CTX := q.shape[0, 1, 2]
     NUM_ROWS, MAX_BLOCKS_PRE_ROW,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
@@ -281,8 +281,11 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
 
+    batch_id = off_hz // H
+    head_id = off_hz // Z
+
     # * offset of batch and head
-    qo_offset = (off_hz // H) * stride_qz + (off_hz % H) * stride_qh
+    qo_offset = batch_id * stride_qz + (off_hz % H) * stride_qh
 
     # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
     # *     - Q might not contiguous tensor, stride is generalized method 
@@ -295,12 +298,16 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
 
     # * starting_point + #head + headdim offset 
-    k_base_ptrs = k_cache + 0 * stride_num_khead + offs_d[:, None] * stride_k_headdim
-    v_base_ptrs = v_cache + 0 * stride_num_vhead + offs_d[None, :] * stride_v_headdim
+    # * off_d[:, None] \in (BLOCK_DMODEL, 1)
+    # * k_base_ptrs \in (BLOCK_DMODEL, 1); 
+    k_base_ptrs = k_cache + head_id * stride_num_khead + offs_d[:, None] * stride_k_headdim
+    # * v_base_ptrs \in (1, BLOCK_DMODEL)
+    v_base_ptrs = v_cache + head_id * stride_num_vhead + offs_d[None, :] * stride_v_headdim
 
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_n := determine current block
-    blocks_ptr = block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW
+    # blocks_ptr = block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW
+    blocks_ptr = block_index + (start_n * NUM_ROWS) * MAX_BLOCKS_PRE_ROW
 
     # initialize pointer to m and l
     m_i = tl.zeros([BLOCK_M], dtype=tl.float32) - float("inf")
@@ -326,21 +333,21 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         bt_index = start_n // BLOCK_SIZE     # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
         bt_block_index = start_n % BLOCK_SIZE    # * bt_block_index := exact block inside that block table
 
-        logical_idx = block_tables \
+        physical_idx = block_tables \
                         + 0 * stride_bt_a \
                         + bt_index * stride_bt_b
 
-        logical_index = tl.load(logical_idx)
+        physical_index = tl.load(physical_idx)
 
         cols = start_n + offs_n
 
         # * #block, block_size
         k_ptrs = k_base_ptrs \
-            + logical_index * stride_kblock \
+            + physical_index * stride_kblock \
             + (bt_block_index + offs_n)[None, :] * stride_kblock_size
 
         v_ptrs = v_base_ptrs \
-                + logical_index * stride_vblock \
+                + physical_index * stride_vblock \
                 + (bt_block_index + offs_n)[:, None] * stride_vblock_size
 
         # -- load k, v --
