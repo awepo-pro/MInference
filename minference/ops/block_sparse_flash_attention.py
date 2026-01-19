@@ -613,7 +613,6 @@ def block_sparse_attention_with_kvcache(
     
     with open('output.txt', 'a') as output:
         po_debug.debug_print(block_index, comment="kv cache", out=output)
-        po_debug.
         
     
     out = _triton_block_sparse_attention_with_kvcache(
