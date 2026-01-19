@@ -259,7 +259,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     BLOCK_SIZE: tl.constexpr
 ):
     # * ceil_div(seqlen, block_size_M), index of starting block
-    start_n = tl.program_id(0)
+    start_m = tl.program_id(0)
     # * b \times h
     off_hz = tl.program_id(1)
 
@@ -269,18 +269,18 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * seqlen of corresponding batch
     seqlen = q_seqlen
     # * do nothing if padding
-    if start_n * BLOCK_M >= seqlen:
+    if start_m * BLOCK_M >= seqlen:
         return
 
     # initialize offsets
     # * we treat QKV as \in (b, h, seqlen // block_size_M, headdim)
 
-    # * start_n * block_M := starting position of current block (among seqlen // block_size_M)
+    # * start_m * block_M := starting position of current block (among seqlen // block_size_M)
     # *     - 4 blocks in 1 head (seqlen = 128) -> 1st: [0, 32), 2nd: [32, 64), 3th: [64, 96), 4th: [96, 128)
     # *     - now in 3th -> start * block_M = 64; +tl.arange(0, block_M) := [32, 64)
 
     # * converted into list with `tl.arange` to get the exact location    + offs_d[:, None] * stride_of each elements
-    offs_m = start_n * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_m = start_m * BLOCK_M + tl.arange(0, BLOCK_M)
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
 
@@ -313,11 +313,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     v_base_ptrs = v_cache + head_id * stride_num_vhead + offs_d[None, :] * stride_v_headdim
 
     # * NUM_ROWS := no. of rows in each block
-    # * off_hz * NUM_ROWS := move to the current head; start_n := determine current block
-    # blocks_ptr = block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW
-    tl.device_print('old blocks ptr: ', (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW)
-    blocks_ptr = block_index + start_n * MAX_BLOCKS_PRE_ROW
-    tl.device_print('new blocks ptr: ', start_n * MAX_BLOCKS_PRE_ROW)
+    # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
+    # * assert (off_hz * NUM_ROWS + start_m) * MAX_BLOCKS_PRE_ROW == start_m * MAX_BLOCKS_PRE_ROW
+    blocks_ptr = block_index + start_m * MAX_BLOCKS_PRE_ROW
+    # tl.device_print('new blocks ptr: ', start_n * MAX_BLOCKS_PRE_ROW)     # * starting position of block index (block_index.shape[0] := num of query blocks)
 
     # initialize pointer to m and l
     m_i = tl.zeros([BLOCK_M], dtype=tl.float32) - float("inf")
@@ -333,8 +332,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     q = (q * qk_scale).to(dtype)
 
     # loop over k, v and update accumulator
-    m_mask = offs_m[:, None] < k_seqlen
-    block_count = tl.minimum((start_n + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
+    m_mask = offs_m[:, None] < q_seqlen
+    block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
 
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
@@ -352,9 +351,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         cols = start_n + offs_n
 
         # * #block, block_size
+        # * k_base_ptrs \in (BLOCK_DMODEL, 1) \plus (1, BLOCK_N) -> (BLOCK_DEMOEL, BLOCK_N)
         k_ptrs = k_base_ptrs \
-            + physical_index * stride_kblock \
-            + (bt_block_index + offs_n)[None, :] * stride_kblock_size
+                + physical_index * stride_kblock \
+                + (bt_block_index + offs_n)[None, :] * stride_kblock_size
 
         v_ptrs = v_base_ptrs \
                 + physical_index * stride_vblock \
@@ -368,7 +368,12 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # if start_n + BLOCK_N < seqlen:
         #     qk = tl.where(m_mask, qk, float("-inf"))
         # else:
-        causal_mask = cols[None, :] <= offs_m[:, None]
+
+        q_preced_len = k_seqlen - q_seqlen
+        q_absolute = q_preced_len + start_m * BLOCK_M
+        abs_offs_m = q_absolute +  tl.arange(0, BLOCK_M)
+        
+        causal_mask = cols[None, :] <= abs_offs_m[:, None]
         qk = tl.where(m_mask & causal_mask, qk, float("-inf"))
         qk += tl.dot(q, k)
         # -- compute scaling constant --
