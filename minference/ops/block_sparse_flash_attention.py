@@ -316,8 +316,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * off_hz * NUM_ROWS := move to the current head; start_n := determine current block
     # blocks_ptr = block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW
     tl.device_print('old blocks ptr: ', (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW)
-    blocks_ptr = block_index + (start_n * NUM_ROWS) * MAX_BLOCKS_PRE_ROW
-    tl.device_print('new blocks ptr: ', (start_n * NUM_ROWS) * MAX_BLOCKS_PRE_ROW)
+    blocks_ptr = block_index + start_n * MAX_BLOCKS_PRE_ROW
+    tl.device_print('new blocks ptr: ', start_n * MAX_BLOCKS_PRE_ROW)
 
     # initialize pointer to m and l
     m_i = tl.zeros([BLOCK_M], dtype=tl.float32) - float("inf")
