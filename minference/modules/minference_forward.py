@@ -1382,10 +1382,10 @@ def minference_vllm_forward(
                 v_head = v_head.transpose(1, 2)
 
                 # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
-                po_debug.debug_print(k_cache.shape)
+                # po_debug.debug_print(k_cache.shape)
 
                 cache_head = head % k_cache.shape[-2]
-                po_debug.debug_print(cache_head)
+                # po_debug.debug_print(cache_head)
                 k_head_cache = k_cache[:, :, cache_head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, cache_head, :].unsqueeze(2)
 
@@ -1402,7 +1402,7 @@ def minference_vllm_forward(
                     block_tables,
                     attn_metadata.seq_lens)     # * out / in [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
 
-                po_debug.debug_print(out.shape)
+                # po_debug.debug_print(out.shape)
 
                 # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
@@ -1477,7 +1477,7 @@ def minference_vllm_forward(
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
 
-        po_debug.debug_print(attn_metadata)
+        # po_debug.debug_print(attn_metadata)
 
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
