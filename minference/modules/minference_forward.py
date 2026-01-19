@@ -1500,7 +1500,7 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                # po_debug.debug_print(prefill_meta)
+                po_debug.debug_print(prefill_meta)
 
                 # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
@@ -1512,7 +1512,7 @@ def minference_vllm_forward(
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
-                print('=' * 30 + 'pass prefill' + '=' * 30)
+                # print('=' * 30 + 'pass prefill' + '=' * 30)
                 
                 output[:num_prefill_query_tokens] = out
             else:
@@ -1520,10 +1520,10 @@ def minference_vllm_forward(
                 # assert False
                 assert prefill_meta.seq_lens is not None
                     
-                # po_debug.debug_print(prefill_meta)
+                po_debug.debug_print(prefill_meta)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
-                print(f'=' * 30, 'prefix enabled')
+                # print(f'=' * 30, 'prefix enabled')
 
                 output[:num_prefill_query_tokens] = minference_prefill_kvcache_func(
                     query,
