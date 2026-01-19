@@ -443,7 +443,7 @@ def block_sparse_attention(
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index(query, key, top_k, block_size_N, block_size_N)
 
-    with open('output.txt', 'a') as output:
+    with open('output2.txt', 'a') as output:
         po_debug.debug_print(block_index, comment="normal", out=output)
     
     out = _triton_block_sparse_attention(
