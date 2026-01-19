@@ -2,8 +2,8 @@ import inspect
 import os
 
 def debug_print(var, comment="", out=print):
-    # if out == print:
-    #     return None
+    if out == print:
+        return None
         
     if out == print:
         out(comment, end='')
