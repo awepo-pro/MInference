@@ -10,30 +10,8 @@ import triton.language as tl
 # import pycuda.autoprimaryctx
 # from pycuda.compiler import SourceModule
 
-import inspect
-import os
+import po_debug
 
-def debug_print(var, comment="", out=print):
-    # return None
-    if out == print:
-        out(comment, end='')
-    else:
-        out.write(comment)
-    # Get the frame of the caller (the line that called debug_print)
-    frame = inspect.currentframe().f_back
-
-    # 1. Get the line number
-    line_no = frame.f_lineno
-
-    # 2. Extract variable name from the source code line
-    # Note: inspect.stack()[1][4] returns the source code of the calling line
-    line_code = inspect.stack()[1][4][0].strip()
-    var_name = line_code.split('(')[1].split(')')[0]
-
-    if out == print:
-        out(f"line={line_no}, {var_name}={var}")
-    else:
-        out.write(f'line={line_no}, {var_name}={var}\n')
 
 # * https://claude.ai/share/5645c803-86b6-4458-8d34-c60422975833
 def _build_block_index(
@@ -222,12 +200,12 @@ def _triton_block_sparse_attention(
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
 
     # * ================================ dbug print ========================================
-    # debug_print(q.shape)
+    # po_debug.debug_print(q.shape)
     # off_hz = grid[1]
     # H = q.shape[1]
-    # debug_print(off_hz)
-    # debug_print(off_hz // H)
-    # debug_print(off_hz % H)
+    # po_debug.debug_print(off_hz)
+    # po_debug.debug_print(off_hz // H)
+    # po_debug.debug_print(off_hz % H)
 
     # * ====================================================================================
     
@@ -401,11 +379,11 @@ def _triton_block_sparse_attention_with_kvcache(
     assert q.shape[0] == 1, f'batch size should be 1, but ({q.shape[0]})'
 
     # * ================================================= dbug =====================================================
-    debug_print(q.shape)                # * (1, 1, 512, 64)
-    debug_print(q_seqlen)
-    debug_print(k_seqlen)
-    debug_print(block_tables.shape)
-    debug_print(block_index.shape)
+    po_debug.debug_print(q.shape)                # * (1, 1, 512, 64)
+    po_debug.debug_print(q_seqlen)
+    po_debug.debug_print(k_seqlen)
+    po_debug.debug_print(block_tables.shape)
+    po_debug.debug_print(block_index.shape)
     
     # * ============================================================================================================
 
@@ -466,7 +444,7 @@ def block_sparse_attention(
     block_index = _build_block_index(query, key, top_k, block_size_N, block_size_N)
 
     with open('output.txt', 'a') as output:
-        debug_print(block_index, comment="normal", out=output)
+        po_debug.debug_print(block_index, comment="normal", out=output)
     
     out = _triton_block_sparse_attention(
         query, key, value, 
@@ -490,7 +468,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
         key: (#batch, #kv_head, seqlen, headdim)
     """
 
-    debug_print(k_cache.shape)
+    po_debug.debug_print(k_cache.shape)
     
     batch_size = block_tables.shape[0]
     block_size = k_cache.shape[1]
@@ -535,11 +513,11 @@ def _build_block_index_with_kvcache(
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
 
-    debug_print(k_seqlen)
+    po_debug.debug_print(k_seqlen)
 
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen)
-    debug_print(key.shape)
-    debug_print(query.shape)
+    po_debug.debug_print(key.shape)
+    po_debug.debug_print(query.shape)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
@@ -552,8 +530,8 @@ def _build_block_index_with_kvcache(
     arange_M = torch.arange(query_pool.shape[-2], dtype=torch.int32, device=query.device) * block_size_M
     arange_N = torch.arange(key_pool.shape[-2], dtype=torch.int32, device=key.device) * block_size_N
 
-    debug_print(query_pool.shape)
-    debug_print(key_pool.shape)
+    po_debug.debug_print(query_pool.shape)
+    po_debug.debug_print(key_pool.shape)
 
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
@@ -563,11 +541,11 @@ def _build_block_index_with_kvcache(
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, k_seqlen // block_size_N)
 
-    debug_print(k_seqlen)
-    debug_print(block_size_N)
-    debug_print(k_seqlen // block_size_N)
-    debug_print(top_k)
-    debug_print(p_pool.shape)
+    po_debug.debug_print(k_seqlen)
+    po_debug.debug_print(block_size_N)
+    po_debug.debug_print(k_seqlen // block_size_N)
+    po_debug.debug_print(top_k)
+    po_debug.debug_print(p_pool.shape)
     
     # * find topk row by row,
     # * topk.indices \in (b, h, m, topk), topk := scalar
@@ -588,8 +566,8 @@ def block_sparse_attention_with_kvcache(
     block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
     
-    debug_print(query.shape)
-    debug_print(key.shape)
+    po_debug.debug_print(query.shape)
+    po_debug.debug_print(key.shape)
     
     batch_size, num_heads, context_size, head_dim = query.shape
 
@@ -600,23 +578,23 @@ def block_sparse_attention_with_kvcache(
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
 
     if q_pad != block_size_M:
-        debug_print(block_size_M)
+        po_debug.debug_print(block_size_M)
         query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
     kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
     if kv_pad != block_size_N:
-        debug_print(block_size_N)
+        po_debug.debug_print(block_size_N)
         key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
         value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
 
-    debug_print(q_pad)
-    debug_print(query.shape)
-    debug_print(key.shape)
+    po_debug.debug_print(q_pad)
+    po_debug.debug_print(query.shape)
+    po_debug.debug_print(key.shape)
 
     all_kv_pad = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
-    debug_print(k_seqlen[0])
-    debug_print(all_kv_pad)
-    debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    po_debug.debug_print(k_seqlen[0])
+    po_debug.debug_print(all_kv_pad)
+    po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
     q_seqlen = query.shape[-2]
 
@@ -628,7 +606,7 @@ def block_sparse_attention_with_kvcache(
         block_size_N, block_size_N)
     
     with open('output.txt', 'a') as output:
-        debug_print(block_index, comment="kv cache", out=output)
+        po_debug.debug_print(block_index, comment="kv cache", out=output)
         
     
     out = _triton_block_sparse_attention_with_kvcache(

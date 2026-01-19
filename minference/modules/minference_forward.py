@@ -40,23 +40,7 @@ from ..ops.block_sparse_flash_attention import (
     block_sparse_attention_with_kvcache
 )
 
-import inspect
-
-
-def debug_print(var):
-    # Get the frame of the caller (the line that called debug_print)
-    return None
-    frame = inspect.currentframe().f_back
-    
-    # 1. Get the line number
-    line_no = frame.f_lineno
-    
-    # 2. Extract variable name from the source code line
-    # Note: inspect.stack()[1][4] returns the source code of the calling line
-    line_code = inspect.stack()[1][4][0].strip()
-    var_name = line_code.split('(')[1].split(')')[0]
-    
-    print(f"line={line_no}, {var_name}={var}")
+import po_debug
 
 # from ..ops.pit_sparse_flash_attention_v2 import vertical_slash_sparse_attention
 # from ..ops.streaming_kernel import streaming_forward, streaming_forward2
@@ -1398,10 +1382,10 @@ def minference_vllm_forward(
                 v_head = v_head.transpose(1, 2)
 
                 # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
-                debug_print(k_cache.shape)
+                po_debug.debug_print(k_cache.shape)
 
                 cache_head = head % k_cache.shape[-2]
-                debug_print(cache_head)
+                po_debug.debug_print(cache_head)
                 k_head_cache = k_cache[:, :, cache_head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, cache_head, :].unsqueeze(2)
 
@@ -1418,11 +1402,11 @@ def minference_vllm_forward(
                     block_tables,
                     attn_metadata.seq_lens)     # * out / in [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
 
-                debug_print(out.shape)
+                po_debug.debug_print(out.shape)
 
                 # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
-                debug_print(out.shape)
+                po_debug.debug_print(out.shape)
 
                 # * cannot use output[:, head, :] since it immediately squeeze out the middle dimension
                 output[:, head:head+1, :] = out
@@ -1493,7 +1477,7 @@ def minference_vllm_forward(
         assert query.shape[0] == num_prefill_query_tokens
         assert decode_query.shape[0] == num_decode_query_tokens
 
-        debug_print(attn_metadata)
+        po_debug.debug_print(attn_metadata)
 
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
@@ -1516,14 +1500,14 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                # debug_print(prefill_meta)
+                # po_debug.debug_print(prefill_meta)
 
-                # debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
-                # debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
-                # debug_print(value.shape)
-                # debug_print(num_prefill_query_tokens)   # * same as num_prefill_kv_tokens, ie. "Hello my name is" -> 4
-                # debug_print(num_prefill_kv_tokens)     
-                # debug_print(num_decode_query_tokens)    # * 0
+                # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
+                # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
+                # po_debug.debug_print(value.shape)
+                # po_debug.debug_print(num_prefill_query_tokens)   # * same as num_prefill_kv_tokens, ie. "Hello my name is" -> 4
+                # po_debug.debug_print(num_prefill_kv_tokens)     
+                # po_debug.debug_print(num_decode_query_tokens)    # * 0
                 
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
@@ -1536,7 +1520,7 @@ def minference_vllm_forward(
                 # assert False
                 assert prefill_meta.seq_lens is not None
                     
-                # debug_print(prefill_meta)
+                # po_debug.debug_print(prefill_meta)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
                 print(f'=' * 30, 'prefix enabled')
@@ -1561,14 +1545,14 @@ def minference_vllm_forward(
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
 
-            # debug_print(decode_meta.block_tables.numel()) # * must exist blocks in block tables
+            # po_debug.debug_print(decode_meta.block_tables.numel()) # * must exist blocks in block tables
 
-            # debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
-            # debug_print(decode_meta)        
+            # po_debug.debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
+            # po_debug.debug_print(decode_meta)        
 
             key_cache, value_cache = kv_cache[0], kv_cache[1]
-            # debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
-            # debug_print(value_cache.shape)
+            # po_debug.debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
+            # po_debug.debug_print(value_cache.shape)
 
             assert num_prefill_query_tokens == 0, 'decode should only has 1 query'
             
@@ -1583,14 +1567,14 @@ def minference_vllm_forward(
                 alibi_slopes=self.alibi_slopes,
             ).squeeze(1)
 
-            # debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
-            # debug_print(output.shape) # * (1, 14, 64)
+            # po_debug.debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
+            # po_debug.debug_print(output.shape) # * (1, 14, 64)
 
             # print('=' * 30 + 'pass decode' + '=' * 30)
 
 
-        # debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode
-        # debug_print(output.view(num_tokens, hidden_size).shape) # * (4, 896) for prefill
+        # po_debug.debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode
+        # po_debug.debug_print(output.view(num_tokens, hidden_size).shape) # * (4, 896) for prefill
 
 
 
