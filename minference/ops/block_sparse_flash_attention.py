@@ -295,8 +295,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
 
     # * starting_point + #head + headdim offset 
-    k_ptrs = k_cache + 1 * stride_num_khead + offs_d[:, None] * stride_k_headdim
-    v_ptrs = v_cache + 1 * stride_num_vhead + offs_d[None, :] * stride_v_headdim
+    k_base_ptrs = k_cache + 1 * stride_num_khead + offs_d[:, None] * stride_k_headdim
+    v_base_ptrs = v_cache + 1 * stride_num_vhead + offs_d[None, :] * stride_v_headdim
 
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_n := determine current block
@@ -335,8 +335,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         cols = start_n + offs_n
 
         # * block table (logical_index), block_size
-        k_ptrs += logical_index * stride_kblock + bt_block_index * stride_kblock_size
-        v_ptrs += logical_index * stride_vblock + bt_block_index * stride_vblock_size
+        k_ptrs = k_base_ptrs + logical_index * stride_kblock + bt_block_index * stride_kblock_size
+        v_ptrs = v_base_ptrs + logical_index * stride_vblock + bt_block_index * stride_vblock_size
 
         # -- load k, v --
         k = tl.load(k_ptrs + offs_n[None, :])
