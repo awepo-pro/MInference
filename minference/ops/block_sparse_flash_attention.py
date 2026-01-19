@@ -15,19 +15,25 @@ import os
 
 def debug_print(var, comment="", out=print):
     # return None
-    out(comment, end='')
+    if out == print:
+        out(comment, end='')
+    else:
+        out.write(comment)
     # Get the frame of the caller (the line that called debug_print)
     frame = inspect.currentframe().f_back
-    
+
     # 1. Get the line number
     line_no = frame.f_lineno
-    
+
     # 2. Extract variable name from the source code line
     # Note: inspect.stack()[1][4] returns the source code of the calling line
     line_code = inspect.stack()[1][4][0].strip()
     var_name = line_code.split('(')[1].split(')')[0]
-    
-    out(f"line={line_no}, {var_name}={var}")
+
+    if out == print:
+        out(f"line={line_no}, {var_name}={var}")
+    else:
+        out.write(f'line={line_no}, {var_name}={var}\n')
 
 # * https://claude.ai/share/5645c803-86b6-4458-8d34-c60422975833
 def _build_block_index(

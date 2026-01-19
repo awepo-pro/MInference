@@ -1528,7 +1528,7 @@ def minference_vllm_forward(
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
-                # print('=' * 30 + 'pass prefill' + '=' * 30)
+                print('=' * 30 + 'pass prefill' + '=' * 30)
                 
                 output[:num_prefill_query_tokens] = out
             else:
@@ -1539,7 +1539,7 @@ def minference_vllm_forward(
                 # debug_print(prefill_meta)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
-                # print(f'=' * 30, 'prefix enabled')
+                print(f'=' * 30, 'prefix enabled')
 
                 output[:num_prefill_query_tokens] = minference_prefill_kvcache_func(
                     query,
