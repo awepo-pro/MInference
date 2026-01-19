@@ -263,7 +263,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
-    tl.device_print('off_hz: ', off_hz)
+    assert off_hz == 0, f'{off_hz=} != 0'
+    pid = tl.program_id(0)
 
     # * seqlen of corresponding batch
     seqlen = q_seqlen
@@ -309,7 +310,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_n := determine current block
     # blocks_ptr = block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW
+    tl.device_print('old blocks ptr: ', block_index + (off_hz * NUM_ROWS + start_n) * MAX_BLOCKS_PRE_ROW)
     blocks_ptr = block_index + (start_n * NUM_ROWS) * MAX_BLOCKS_PRE_ROW
+    tl.device_print('new blocks ptr: ', (start_n * NUM_ROWS) * MAX_BLOCKS_PRE_ROW)
 
     # initialize pointer to m and l
     m_i = tl.zeros([BLOCK_M], dtype=tl.float32) - float("inf")
@@ -402,7 +405,7 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(q_seqlen)
     # po_debug.debug_print(k_seqlen)
     # po_debug.debug_print(block_tables.shape)
-    # po_debug.debug_print(block_index.shape)
+    po_debug.debug_print(block_index)
     
     # * ============================================================================================================
 
@@ -428,7 +431,7 @@ def _triton_block_sparse_attention_with_kvcache(
         v_cache.stride(0), v_cache.stride(1), v_cache.stride(2), v_cache.stride(3),
         o.stride(0), o.stride(1), o.stride(2), o.stride(3),
         q.shape[0], q.shape[1], q.shape[2],
-        block_index.shape[-2], block_index.shape[-1],
+        NUM_ROWS=block_index.shape[-2], MAX_BLOCKS_PER_ROW=block_index.shape[-1],
         BLOCK_M=block_size_M, BLOCK_N=block_size_N,
         BLOCK_DMODEL=headdim,
         dtype=dtype,
