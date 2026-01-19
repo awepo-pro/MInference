@@ -466,7 +466,7 @@ def _triton_block_sparse_attention_with_kvcache(
         block_index,
         o,
         q.stride(0), q.stride(1), q.stride(2), q.stride(3),
-        k_cache.stride(0), k_cache.stride(1) / 2, k_cache.stride(2), k_cache.stride(3),
+        k_cache.stride(0), k_cache.stride(1) // 2, k_cache.stride(2), k_cache.stride(3),
         v_cache.stride(0), v_cache.stride(1), v_cache.stride(2), v_cache.stride(3),
         o.stride(0), o.stride(1), o.stride(2), o.stride(3),
         Z=q.shape[0], H=q.shape[1], N_CTX=q.shape[2],
