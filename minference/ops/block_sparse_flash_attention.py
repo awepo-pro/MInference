@@ -264,7 +264,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     off_hz = tl.program_id(1)
 
     # assert off_hz == 0, f'{off_hz=} != 0'
-    pid = tl.program_id(0)
 
     # * seqlen of corresponding batch
     seqlen = q_seqlen
