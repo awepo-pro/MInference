@@ -334,13 +334,18 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
         cols = start_n + offs_n
 
-        # * block table (logical_index), block_size
-        k_ptrs = k_base_ptrs + logical_index * stride_kblock + bt_block_index * stride_kblock_size
-        v_ptrs = v_base_ptrs + logical_index * stride_vblock + bt_block_index * stride_vblock_size
+        # * #block, block_size
+        k_ptrs = k_base_ptrs \
+            + logical_index * stride_kblock \
+            + (bt_block_index + offs_n[None, :]) * stride_kblock_size
+
+        v_ptrs = v_base_ptrs \
+                + logical_index * stride_vblock \
+                + (bt_block_index + offs_n[None, :]) * stride_vblock_size
 
         # -- load k, v --
-        k = tl.load(k_ptrs + offs_n[None, :])
-        v = tl.load(v_ptrs + offs_n[:, None])
+        k = tl.load(k_ptrs)
+        v = tl.load(v_ptrs)
         # -- compute qk --
         qk = tl.zeros([BLOCK_M, BLOCK_N], dtype=tl.float32)
         # if start_n + BLOCK_N < seqlen:
