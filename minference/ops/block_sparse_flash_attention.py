@@ -619,6 +619,7 @@ def block_sparse_attention_with_kvcache(
     assert num_heads == 1, f'{num_heads=} != 1'
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
     
+    q_seqlen = query.shape[-2]
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
 
     if q_pad != block_size_M:
@@ -640,7 +641,6 @@ def block_sparse_attention_with_kvcache(
     # po_debug.debug_print(all_kv_pad)
     # po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
-    q_seqlen = query.shape[-2]
 
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index_with_kvcache(
