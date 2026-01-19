@@ -376,9 +376,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
         
         causal_mask = cols[None, :] <= abs_offs_m[:, None]
-        tl.device_print(cols)
-        tl.device_print(abs_offs_m)
-        tl.device_print(causal_mask)
+        tl.device_print('cols: ', cols)
+        tl.device_print('abs_offs_m: ', abs_offs_m)
+        tl.device_print('causal_mask: ', causal_mask)
         qk = tl.where(m_mask & causal_mask, qk, float("-inf"))
         qk += tl.dot(q, k)
         # -- compute scaling constant --
