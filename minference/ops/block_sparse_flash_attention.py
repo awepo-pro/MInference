@@ -594,8 +594,8 @@ def block_sparse_attention_with_kvcache(
     block_tables: torch.Tensor,             # * (#batch, block_size), #batch == 1
     top_k: int,
     k_seqlen: torch.Tensor,
-    block_size_M: int = 64, # might change to 16 (follow vllm block size)
-    block_size_N: int = 64, # might change to 16 (follow vllm block size)
+    block_size_M: int = 32, # might change to 16 (follow vllm block size)
+    block_size_N: int = 32, # might change to 16 (follow vllm block size)
 ):
     
     # po_debug.debug_print(query.shape)
