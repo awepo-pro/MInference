@@ -367,6 +367,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
         # -- load k, v --
         k = tl.load(k_ptrs)
+
+        tl.device_print('k: ', k.shape_tuple())
+        tl.device_print('actual k: ', k[0])
+        
         v = tl.load(v_ptrs)
         # -- compute qk --
         qk = tl.zeros([BLOCK_M, BLOCK_N], dtype=tl.float32)
