@@ -250,8 +250,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     stride_kblock, stride_kblock_size, stride_num_khead, stride_k_headdim,     
     stride_vblock, stride_vblock_size, stride_num_vhead, stride_v_headdim,
     stride_oz, stride_oh, stride_om, stride_ok,
-    Z, H, N_CTX,                        # * Z, H, N_CTX := q.shape[0, 1, 2]
-    NUM_ROWS, MAX_BLOCKS_PRE_ROW,
+    Z: tl.constexpr, H: tl.constexpr, N_CTX: tl.constexpr,                        # * Z, H, N_CTX := q.shape[0, 1, 2]
+    NUM_ROWS: tl.constexpr, MAX_BLOCKS_PRE_ROW: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_DMODEL: tl.constexpr,
@@ -430,7 +430,7 @@ def _triton_block_sparse_attention_with_kvcache(
         k_cache.stride(0), k_cache.stride(1), k_cache.stride(2), k_cache.stride(3),
         v_cache.stride(0), v_cache.stride(1), v_cache.stride(2), v_cache.stride(3),
         o.stride(0), o.stride(1), o.stride(2), o.stride(3),
-        q.shape[0], q.shape[1], q.shape[2],
+        Z=q.shape[0], H=q.shape[1], N_CTX=q.shape[2],
         NUM_ROWS=block_index.shape[-2], MAX_BLOCKS_PER_ROW=block_index.shape[-1],
         BLOCK_M=block_size_M, BLOCK_N=block_size_N,
         BLOCK_DMODEL=headdim,
