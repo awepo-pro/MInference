@@ -1500,7 +1500,8 @@ def minference_vllm_forward(
                 #     alibi_slopes=self.alibi_slopes,
                 # )
 
-                po_debug.debug_print(prefill_meta)
+                with open('output3.txt', 'a') as out:
+                    po_debug.debug_print(prefill_meta, out=out)
 
                 # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
@@ -1520,7 +1521,8 @@ def minference_vllm_forward(
                 # assert False
                 assert prefill_meta.seq_lens is not None
                     
-                po_debug.debug_print(prefill_meta)
+                with open('output4.txt', 'a') as out:
+                    po_debug.debug_print(prefill_meta, out=out)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
                 # print(f'=' * 30, 'prefix enabled')
