@@ -22,6 +22,8 @@ def _build_block_index(
     block_size_N: int = 64,
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
+    po_debug.debug_print(key.shape)
+    po_debug.debug_print(query.shape)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
@@ -38,6 +40,8 @@ def _build_block_index(
     p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
+
+    po_debug.debug_print(p_pool.shape)
 
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, context_size // block_size_N)
@@ -516,8 +520,8 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(k_seqlen)
 
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen)
-    # po_debug.debug_print(key.shape)
-    # po_debug.debug_print(query.shape)
+    po_debug.debug_print(key.shape)
+    po_debug.debug_print(query.shape)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
@@ -545,7 +549,7 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(block_size_N)
     # po_debug.debug_print(k_seqlen // block_size_N)
     # po_debug.debug_print(top_k)
-    # po_debug.debug_print(p_pool.shape)
+    po_debug.debug_print(p_pool.shape)
     
     # * find topk row by row,
     # * topk.indices \in (b, h, m, topk), topk := scalar
@@ -605,8 +609,11 @@ def block_sparse_attention_with_kvcache(
         all_kv_pad,
         block_size_N, block_size_N)
     
+    
+    
     with open('output.txt', 'a') as output:
         po_debug.debug_print(block_index, comment="kv cache", out=output)
+        po_debug.
         
     
     out = _triton_block_sparse_attention_with_kvcache(
