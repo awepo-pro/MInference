@@ -1411,7 +1411,7 @@ def minference_vllm_forward(
                 # * cannot use output[:, head, :] since it immediately squeeze out the middle dimension
                 output[:, head:head+1, :] = out
                 
-                exit()
+                # exit()
             return output
             
 
