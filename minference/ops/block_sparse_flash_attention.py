@@ -11,10 +11,11 @@ import triton.language as tl
 # from pycuda.compiler import SourceModule
 
 import inspect
+import os
 
-def debug_print(var, comment=""):
-    return None
-    print(comment, end='')
+def debug_print(var, comment="", out=print):
+    # return None
+    out(comment, end='')
     # Get the frame of the caller (the line that called debug_print)
     frame = inspect.currentframe().f_back
     
@@ -26,7 +27,7 @@ def debug_print(var, comment=""):
     line_code = inspect.stack()[1][4][0].strip()
     var_name = line_code.split('(')[1].split(')')[0]
     
-    print(f"line={line_no}, {var_name}={var}")
+    out(f"line={line_no}, {var_name}={var}")
 
 # * https://claude.ai/share/5645c803-86b6-4458-8d34-c60422975833
 def _build_block_index(
@@ -457,6 +458,10 @@ def block_sparse_attention(
 
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index(query, key, top_k, block_size_N, block_size_N)
+
+    with open('output.txt', 'a') as output:
+        debug_print(block_index, comment="normal", out=output)
+    
     out = _triton_block_sparse_attention(
         query, key, value, 
         seqlens,
@@ -615,6 +620,10 @@ def block_sparse_attention_with_kvcache(
         top_k, 
         all_kv_pad,
         block_size_N, block_size_N)
+    
+    with open('output.txt', 'a') as output:
+        debug_print(block_index, comment="kv cache", out=output)
+        
     
     out = _triton_block_sparse_attention_with_kvcache(
         query,
