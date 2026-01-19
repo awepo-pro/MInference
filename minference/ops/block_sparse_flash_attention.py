@@ -263,6 +263,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
+    tl.device_print(off_hz)
+
     # * seqlen of corresponding batch
     seqlen = q_seqlen
     # * do nothing if padding
