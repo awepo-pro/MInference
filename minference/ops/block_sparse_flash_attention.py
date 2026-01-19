@@ -410,6 +410,8 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(k_seqlen)
     # po_debug.debug_print(block_tables.shape)
     po_debug.debug_print(block_index)
+    po_debug.debug_print(block_index.shape)
+
     
     # * ============================================================================================================
 
@@ -417,7 +419,7 @@ def _triton_block_sparse_attention_with_kvcache(
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
     BLOCK_SIZE = k_cache.shape[1]
-    
+
     _triton_block_sparse_attn_fwd_kernel_with_kvcache[grid](
         q, 
         k_cache, 
