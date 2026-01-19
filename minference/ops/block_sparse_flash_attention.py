@@ -308,6 +308,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * off_d[:, None] \in (BLOCK_DMODEL, 1)
     # * k_base_ptrs \in (BLOCK_DMODEL, 1); 
     k_base_ptrs = k_cache + head_id * stride_num_khead + offs_d[:, None] * stride_k_headdim
+    tl.device_print('head_id: ', head_id)
+    tl.device_print('head_id * stride_num_khead: ', head_id * stride_num_khead)
     # * v_base_ptrs \in (1, BLOCK_DMODEL)
     v_base_ptrs = v_cache + head_id * stride_num_vhead + offs_d[None, :] * stride_v_headdim
 
@@ -358,7 +360,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         k_ptrs = k_base_ptrs \
                 + physical_index * stride_kblock \
                 + (bt_block_index + offs_n)[None, :] * stride_kblock_size
-
+        
         v_ptrs = v_base_ptrs \
                 + physical_index * stride_vblock \
                 + (bt_block_index + offs_n)[:, None] * stride_vblock_size
@@ -425,6 +427,7 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(block_tables.shape)
     po_debug.debug_print(block_index)
     po_debug.debug_print(block_index.shape)
+    po_debug.debug_print(k_cache.stride(1))
 
     
     # * ============================================================================================================
@@ -435,6 +438,7 @@ def _triton_block_sparse_attention_with_kvcache(
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
     BLOCK_SIZE = k_cache.shape[1]
+
 
     # * grid := (#block_M, 1)
     _triton_block_sparse_attn_fwd_kernel_with_kvcache[grid](
