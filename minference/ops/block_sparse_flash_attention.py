@@ -263,7 +263,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
-    assert off_hz == 0, f'{off_hz=} != 0'
+    # assert off_hz == 0, f'{off_hz=} != 0'
     pid = tl.program_id(0)
 
     # * seqlen of corresponding batch
@@ -284,20 +284,24 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
 
+    # * batch_id := 0; head_id := 0
     batch_id = off_hz // H
     head_id = off_hz // Z
 
     # * offset of batch and head
     qo_offset = batch_id * stride_qz + (off_hz % H) * stride_qh
+    tl.device_print('off_hz % H: ', off_hz % H)
 
     # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-
     # * start_point + batch_head_offset + block_offset + headdim_offset
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
+
+    tl.device_print('qo_offset: ', qo_offset)
+    tl.device_print('q_ptrs: ', qo_offset + offs_m[:, None])
 
 
     # * starting_point + #head + headdim offset 
