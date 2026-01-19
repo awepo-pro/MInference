@@ -332,6 +332,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
     # loop over k, v and update accumulator
     m_mask = offs_m[:, None] < q_seqlen
+    tl.device_print('m_mask: ', m_mask)
+    tl.device_print(offs_m[:, None], q_seqlen)
     block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
 
     for sparse_block_idx in range(block_count):
@@ -370,7 +372,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
         q_preced_len = k_seqlen - q_seqlen
         q_absolute = q_preced_len + start_m * BLOCK_M
-        abs_offs_m = q_absolute +  tl.arange(0, BLOCK_M)
+        abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
         
         causal_mask = cols[None, :] <= abs_offs_m[:, None]
         qk = tl.where(m_mask & causal_mask, qk, float("-inf"))
