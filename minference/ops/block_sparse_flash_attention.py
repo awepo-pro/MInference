@@ -351,7 +351,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
-        tl.device_print('physical_index: ', physical_index)
+        # tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
@@ -427,9 +427,10 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(block_tables.shape)
     po_debug.debug_print(block_index)
     po_debug.debug_print(block_index.shape)
-    po_debug.debug_print(k_cache.stride(1))
-    po_debug.debug_print(k_cache[0])
-    po_debug.debug_print(k_cache[0][:q_seqlen][0])
+    # po_debug.debug_print(k_cache.stride(1))
+    po_debug.debug_print(k_cache.shape)
+    po_debug.debug_print(k_cache[0][:q_seqlen])
+    # po_debug.debug_print(k_cache[0][:q_seqlen][0])
     
     # * ============================================================================================================
 
