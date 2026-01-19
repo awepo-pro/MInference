@@ -288,9 +288,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     batch_id = off_hz // H
     head_id = off_hz // Z
 
-    # * offset of batch and head
+    # * offset of batch and head, 
+    # * assert qo_offset == 0
     qo_offset = batch_id * stride_qz + (off_hz % H) * stride_qh
-    tl.device_print('off_hz % H: ', off_hz % H)
+    # tl.device_print('off_hz % H: ', off_hz % H)             # * = 0
 
     # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
     # *     - Q might not contiguous tensor, stride is generalized method 
@@ -300,8 +301,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
 
-    tl.device_print('qo_offset: ', qo_offset)
-    tl.device_print('q_ptrs: ', qo_offset + offs_m[:, None])
+    # tl.device_print('qo_offset: ', qo_offset)                                       # * qo_offset = 0
+    # tl.device_print('q_ptrs: ', qo_offset + offs_m[:, None])                        # * [0, block_M)
 
 
     # * starting_point + #head + headdim offset 
@@ -415,11 +416,14 @@ def _triton_block_sparse_attention_with_kvcache(
     
     # * ============================================================================================================
 
+    assert q.shape[0] * q.shape[1] == 1, f'{q.shape[0]=}, {q.shape[1]=}, {(q.shape[0] * q.shape[1])=} != 1'
+
     o = torch.zeros_like(q)
     grid = (triton.cdiv(q.shape[2], block_size_M), q.shape[0] * q.shape[1], 1)
     dtype = tl.bfloat16 if q.dtype == torch.bfloat16 else tl.float16
     BLOCK_SIZE = k_cache.shape[1]
 
+    # * grid := (#block_M, 1)
     _triton_block_sparse_attn_fwd_kernel_with_kvcache[grid](
         q, 
         k_cache, 
