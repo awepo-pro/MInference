@@ -487,18 +487,18 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(q.flatten()[64:128])
     # po_debug.debug_print(k_cache.flatten()[:64])
 
-    q_tmp = q.flatten()[64:128]
-    k_tmp = k_cache.flatten()[:64]
+    # q_tmp = q.flatten()[64:128]
+    # k_tmp = k_cache.flatten()[:64]
 
-    acc = 0.0
-    for i in range(64):
-        # po_debug.debug_print(q_tmp[i])
-        # po_debug.debug_print(k_tmp[i])
-        acc += q_tmp[i] * k_tmp[i]
+    # acc = 0.0
+    # for i in range(64):
+    #     # po_debug.debug_print(q_tmp[i])
+    #     # po_debug.debug_print(k_tmp[i])
+    #     acc += q_tmp[i] * k_tmp[i]
 
-    acc2 = torch.einsum('i, i->', q_tmp, k_tmp)
+    # acc2 = torch.einsum('i, i->', q_tmp, k_tmp)
     # po_debug.debug_print(acc2)
-    assert int(acc) == int(acc2), f'{acc=} != {acc2}'
+    # assert int(acc) == int(acc2), f'{acc=} != {acc2}'
 
     # po_debug.debug_print(sm_scale)
     # po_debug.debug_print(sm_scale * 1.44269504)
