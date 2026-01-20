@@ -452,7 +452,7 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(k_cache.stride(1))
     po_debug.debug_print(k_cache.shape)
     po_debug.debug_print(k_cache.stride())
-    po_debug.debug_print(k_cache[0][:10])
+    # po_debug.debug_print(k_cache[0][:10])
     po_debug.debug_print(k_cache.flatten()[:200])
     po_debug.debug_print(k_cache.flatten()[0].to(torch.float16))
     po_debug.debug_print(k_cache.flatten()[64].to(torch.float32))    

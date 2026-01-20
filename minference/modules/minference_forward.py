@@ -1394,6 +1394,8 @@ def minference_vllm_forward(
                 po_debug.debug_print(k_head_cache.shape)
                 po_debug.debug_print(k_head_cache.stride())
 
+                po_debug.debug_print(k_cache[0][:10])
+
                 out = self.block_sparse_topk_vllm_with_kvcache(
                     q_head, 
                     k_head,
