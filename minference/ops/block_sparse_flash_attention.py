@@ -341,8 +341,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     q = tl.load(q_ptrs)
     q = (q * qk_scale).to(dtype)
 
-    q_tmp = tl.load(Q + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk)
-    tl.device_print('q-tmp: ', q_tmp)
+    # q_tmp = tl.load(Q + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk)
+    # tl.device_print('q-tmp: ', q_tmp)
 
     # loop over k, v and update accumulator
     m_mask = offs_m[:, None] < q_seqlen
