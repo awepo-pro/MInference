@@ -620,14 +620,14 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     
     # Reshape to merge blocks into sequence dimension
     # (#batch, num_blocks_needed * block_size, #kv_head, headdim)
-    po_debug.debug_print(gathered_blocks.shape)
+    # po_debug.debug_print(gathered_blocks.shape)
     # po_debug.debug_print(gathered_blocks)
-    po_debug.debug_print(block_indices)
-    po_debug.debug_print(k_cache.shape)
-    po_debug.debug_print(num_blocks_needed)
-    po_debug.debug_print(block_size)
-    po_debug.debug_print(num_kv_heads)
-    po_debug.debug_print(num_blocks_needed * block_size)
+    # po_debug.debug_print(block_indices)
+    # po_debug.debug_print(k_cache.shape)
+    # po_debug.debug_print(num_blocks_needed)
+    # po_debug.debug_print(block_size)
+    # po_debug.debug_print(num_kv_heads)
+    # po_debug.debug_print(num_blocks_needed * block_size)
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
 
     if seqlen != padlen:
@@ -639,6 +639,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     
     # Transpose to match desired output shape: (#batch, #kv_head, seqlen, headdim)
     full_key = full_key.transpose(1, 2)  # (#batch, #kv_head, seqlen, headdim)
+    po_debug.debug_print(full_key.shape)
     
     return full_key
 
@@ -750,7 +751,7 @@ def block_sparse_attention_with_kvcache(
         top_k, 
         k_seqlen[0],
         all_kv_pad,
-        block_size_N, block_size_N)
+        block_size_M, block_size_N)
     
     
     
