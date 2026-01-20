@@ -632,14 +632,14 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
 
     if seqlen != padlen:
         assert padlen >= seqlen, f'{padlen=} < {seqlen=}'
-        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, padlen - seqlen, 0, 0, 0, 0])
+        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - seqlen, 0, 0])
     
     # Trim to actual sequence length
     full_key = full_key[:, :seqlen, :, :]  # (#batch, seqlen, #kv_head, headdim)
     
     # Transpose to match desired output shape: (#batch, #kv_head, seqlen, headdim)
     full_key = full_key.transpose(1, 2)  # (#batch, #kv_head, seqlen, headdim)
-    po_debug.debug_print(full_key.shape)
+    po_debug.debug_print(full_key.shape)        # * (1, 22, 43, 64)
     
     return full_key
 
