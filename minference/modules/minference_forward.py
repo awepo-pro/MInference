@@ -980,6 +980,8 @@ def minference_vllm_forward(
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
 
+                print('=' * 30 + f'{head=}' + '=' * 30)
+
                 # (1, seq_len, num_heads, head_size)
                 # * expand the dimension (1, seqlen, 1, head_size)
                 q_head = q_head[None, ...]
@@ -1368,6 +1370,8 @@ def minference_vllm_forward(
                 q_head = q[:, head, :].unsqueeze(1)
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
+
+                print('=' * 30 + f'{head=}' + '=' * 30)
                 
 
                 # (1, seq_len, num_heads, head_size)
