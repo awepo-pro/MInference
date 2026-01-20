@@ -1365,7 +1365,8 @@ def minference_vllm_forward(
             output = torch.empty_like(q)
             # head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
 
-            for head in range(q.size(-2)):
+            # for head in range(q.size(-2)):
+            for head in range(1):
                 # * (seqlen, #head=1, headdim), unsqueeze(1) to make sure (#head=1) dimension doesn't disappear
                 q_head = q[:, head, :].unsqueeze(1)
                 k_head = k[:, head, :].unsqueeze(1)

@@ -235,7 +235,7 @@ def _triton_block_sparse_attention(
         num_warps=4, num_stages=2,
     )
 
-    # po_debug.debug_print(o[0][0][:4])
+    po_debug.debug_print(o[0][0][:5])
 
     return o
 
