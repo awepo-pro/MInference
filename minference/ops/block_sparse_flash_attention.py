@@ -631,14 +631,15 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
 
     # * num_blocks_needed * block_size := seqlen + pad
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
+    len =  num_blocks_needed * block_size
 
-    if seqlen != padlen:
-        assert padlen >= seqlen, f'{padlen=} < {seqlen=}'
+    if len != padlen:
+        assert padlen >= len, f'{padlen=} < {len=}'
         print('=' * 30 + 'activate')
         po_debug.debug_print(full_key.shape)
         po_debug.debug_print(padlen)
-        po_debug.debug_print(seqlen)
-        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - seqlen, 0, 0])
+        po_debug.debug_print(len)
+        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - len, 0, 0])
         po_debug.debug_print(full_key.shape)
 
     
