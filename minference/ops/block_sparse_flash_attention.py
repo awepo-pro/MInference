@@ -619,7 +619,8 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
     # Reshape to merge blocks into sequence dimension
     # (#batch, num_blocks_needed * block_size, #kv_head, headdim)
     po_debug.debug_print(gathered_blocks.shape)
-    po_debug.debug_print(gathered_blocks)
+    # po_debug.debug_print(gathered_blocks)
+    po_debug.debug_print(block_indices)
     po_debug.debug_print(k_cache.shape)
     po_debug.debug_print(num_blocks_needed)
     po_debug.debug_print(block_size)
