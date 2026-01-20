@@ -179,6 +179,10 @@ def _triton_block_sparse_attn_fwd_kernel(
         l_i = l_i * alpha + tl.sum(p, 1)
         m_i = m_i_new
 
+        # tl.device_print('acc: ', acc)
+        tl.device_print('li: ', l_i + tl.arange(0, BLOCK_M))
+        tl.device_print('mi: ', m_i + tl.arange(0, BLOCK_M))
+
     # write back O
     acc /= l_i[:, None]
     tl.store(o_ptrs, acc.to(dtype), mask=m_mask)
