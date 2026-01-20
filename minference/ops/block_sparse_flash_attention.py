@@ -235,6 +235,8 @@ def _triton_block_sparse_attention(
         num_warps=4, num_stages=2,
     )
 
+    po_debug.debug_print(o[0][0][:4])
+
     return o
 
 @triton.jit
@@ -541,7 +543,7 @@ def _triton_block_sparse_attention_with_kvcache(
         BLOCK_SIZE=BLOCK_SIZE
     )
 
-    po_debug.debug_print(o)
+    po_debug.debug_print(o[0][0][:4])
 
     return o
 
