@@ -378,6 +378,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # tl.device_print('bt_block_index + offs_n: ', bt_block_index + offs_n) # * 0, 1, 2, ..., 31
         # tl.device_print('(bt_block_index + offs_n)[None, :] * stride_kblock_size: ', (bt_block_index + offs_n)[None, :] * stride_kblock_size) # * 0, 64, 128, ..., 1920, 1984
         
+        # * v_base_ptrs \in (1, BLOCK_DMODEL) \plus (BLOCK_N, 1) -> (BLOCK_N, BLOCK_DMODEL)
         v_ptrs = v_base_ptrs \
                 + physical_index * stride_vblock \
                 + (bt_block_index + offs_n)[:, None] * stride_vblock_size
@@ -410,12 +411,14 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # tl.device_print('cols: ', cols)
         # tl.device_print('abs_offs_m: ', abs_offs_m)
         # tl.device_print('causal_mask: ', causal_mask)
+
+        # * qk \in (BLOCK_M, BLOCK_DMODEL) \times (BLOCK_DMODEL, BLOCK_N) -> (BLOCK_M, BLOCK_N)
         qk = tl.where(m_mask & causal_mask, qk, float("-inf"))
         qk += tl.dot(q, k)
 
-        off_qka = tl.arange(0, BLOCK_M)
-        off_qkb = tl.arange(0, BLOCK_N)
-        tl.device_print('qk: ', qk + off_qka + off_qkb)
+        # off_qka = tl.arange(0, BLOCK_M)
+        # off_qkb = tl.arange(0, BLOCK_N)
+        # tl.device_print('qk: ', qk + off_qka + off_qkb)
         # -- compute scaling constant --
         m_i_new = tl.maximum(m_i, tl.max(qk, 1))
         alpha = tl.math.exp2(m_i - m_i_new)
@@ -427,6 +430,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # -- update m_i and l_i --
         l_i = l_i * alpha + tl.sum(p, 1)
         m_i = m_i_new
+
+        # tl.device_print('acc: ', acc)
+        tl.device_print('li: ', l_i + tl.arange(0, BLOCK_M))
+        tl.device_print('mi: ', m_i + tl.arange(0, BLOCK_M))
 
     # write back O
     acc /= l_i[:, None]
@@ -455,39 +462,38 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(q_seqlen)
     # po_debug.debug_print(k_seqlen)
     # po_debug.debug_print(block_tables.shape)
-    po_debug.debug_print(block_index)
-    po_debug.debug_print(block_index.shape)
+    # po_debug.debug_print(block_index)
+    # po_debug.debug_print(block_index.shape)
     # po_debug.debug_print(k_cache.stride(1))
-    po_debug.debug_print(k_cache.shape)
-    po_debug.debug_print(k_cache.stride())
+    # po_debug.debug_print(k_cache.shape)
+    # po_debug.debug_print(k_cache.stride())
     # po_debug.debug_print(k_cache[0][:10])
     # po_debug.debug_print(k_cache.flatten()[:200])
     # po_debug.debug_print(k_cache.flatten()[0].to(torch.float16))
     # po_debug.debug_print(k_cache.flatten()[64].to(torch.float32))    
     # po_debug.debug_print(k_cache.flatten()[128].to(torch.float32))    
 
-    po_debug.debug_print(q[0][0][0])
-    po_debug.debug_print(q.flatten()[64:128])
-    po_debug.debug_print(k_cache.flatten()[:64])
+    # po_debug.debug_print(q[0][0][0])
+    # po_debug.debug_print(q.flatten()[64:128])
+    # po_debug.debug_print(k_cache.flatten()[:64])
 
     q_tmp = q.flatten()[64:128]
     k_tmp = k_cache.flatten()[:64]
 
     acc = 0.0
     for i in range(64):
-        po_debug.debug_print(q_tmp[i])
-        po_debug.debug_print(k_tmp[i])
+        # po_debug.debug_print(q_tmp[i])
+        # po_debug.debug_print(k_tmp[i])
         acc += q_tmp[i] * k_tmp[i]
 
     acc2 = torch.einsum('i, i->', q_tmp, k_tmp)
-    po_debug.debug_print(acc2)
+    # po_debug.debug_print(acc2)
     assert acc == acc2, f'{acc=} != {acc2}'
 
-    po_debug.debug_print(sm_scale)
-    po_debug.debug_print(sm_scale * 1.44269504)
+    # po_debug.debug_print(sm_scale)
+    # po_debug.debug_print(sm_scale * 1.44269504)
 
-    po_debug.debug_print(acc * sm_scale * 1.44269504)
-    exit()
+    # po_debug.debug_print(acc * sm_scale * 1.44269504)
 
     # po_debug.debug_print(k_cache[0][:q_seqlen][0])
     
