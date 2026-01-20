@@ -84,7 +84,7 @@ def main() -> None:
         block_size=256,
         # block_size=16,
         enable_chunked_prefill=True,
-        max_num_batched_tokens=256
+        max_num_batched_tokens=64
     )
 
     # Patch MInference Module
