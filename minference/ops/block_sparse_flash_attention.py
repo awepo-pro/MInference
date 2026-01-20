@@ -636,7 +636,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     #     assert padlen >= seqlen, f'{padlen=} < {seqlen=}'
     #     print('=' * 30 + 'activate')
     #     po_debug.debug_print(full_key.shape)
-    #     full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - seqlen, 0, 0])
+    full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - seqlen, 0, 0])
     #     po_debug.debug_print(full_key.shape)
 
     
@@ -746,7 +746,7 @@ def block_sparse_attention_with_kvcache(
     all_kv_pad = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
     po_debug.debug_print(k_seqlen[0])
     po_debug.debug_print(all_kv_pad)
-    po_debug.debug_print(k_seqlen[0] % block_size_N)
+    po_debug.debug_print(block_size_N % k_seqlen[0])
     po_debug.debug_print(int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
     po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
