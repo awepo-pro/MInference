@@ -1377,7 +1377,7 @@ def minference_vllm_forward(
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
 
-                print('=' * 30 + 'kv cache: ' + f'{head=}' + '=' * 30)
+                # print('=' * 30 + 'kv cache: ' + f'{head=}' + '=' * 30)
                 
 
                 # (1, seq_len, num_heads, head_size)
@@ -1403,10 +1403,10 @@ def minference_vllm_forward(
                 k_head_cache = k_cache[:, :, k_cache_head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, v_cache_head, :].unsqueeze(2)
 
-                po_debug.debug_print(k_cache.shape)
-                po_debug.debug_print(k_cache.stride())
-                po_debug.debug_print(k_head_cache.shape)
-                po_debug.debug_print(k_head_cache.stride())
+                # po_debug.debug_print(k_cache.shape)
+                # po_debug.debug_print(k_cache.stride())
+                # po_debug.debug_print(k_head_cache.shape)
+                # po_debug.debug_print(k_head_cache.stride())
 
                 # po_debug.debug_print(k_cache[0][:10])
 
@@ -1427,7 +1427,7 @@ def minference_vllm_forward(
 
                 # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
-                po_debug.debug_print(out.shape)
+                # po_debug.debug_print(out.shape)
 
                 # * cannot use output[:, head, :] since it immediately squeeze out the middle dimension
                 output[:, head:head+1, :] = out
