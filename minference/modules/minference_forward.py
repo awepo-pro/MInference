@@ -1546,7 +1546,7 @@ def minference_vllm_forward(
                 assert prefill_meta.seq_lens is not None
                     
                 # with open('output4.txt', 'a') as out:
-                #     po_debug.debug_print(prefill_meta, out=out)
+                po_debug.debug_print(prefill_meta)
                 # max_seq_len = max(prefill_meta.seq_lens)
 
                 # print(f'=' * 30, 'prefix enabled')

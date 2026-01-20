@@ -609,6 +609,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
     # Gather blocks for each sequence in batch
     # block_tables: (#batch, max_block_per_seq)
     # We take only the first num_blocks_needed blocks
+    assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where [0] != 1'
     block_indices = block_tables[:, :num_blocks_needed]  # (#batch, num_blocks_needed)
     
     # Gather the blocks from k_cache
@@ -617,6 +618,9 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
     
     # Reshape to merge blocks into sequence dimension
     # (#batch, num_blocks_needed * block_size, #kv_head, headdim)
+    po_debug.debug_print(gathered_blocks.shape)
+    po_debug.debug_print(k_cache.shape)
+
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
     
     # Trim to actual sequence length
