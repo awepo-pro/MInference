@@ -1356,13 +1356,17 @@ def minference_vllm_forward(
             assert v_cache.stride(-1) == 1, "v_cache must have contiguous last dimension"
 
             q = q.contiguous() if q.stride(-1) != 1 else q
+            k_n_rep = q.size(-2) // k.size(-2)
+            v_n_rep = q.size(-2) // v.size(-2)
+
+            assert k_n_rep == v_n_rep, f'{k_n_rep=} != {v_n_rep=}, kv should have same init heads in grouped multiple attention. remove if necessary'
 
             # (seq_len, num_heads, head_size)
             if q.size(-2) != k.size(-2):
-                k = repeat_kv(k, q.size(-2) // k.size(-2))
-                v = repeat_kv(v, q.size(-2) // v.size(-2))
+                k = repeat_kv(k, k_n_rep))
+                v = repeat_kv(v, v_n_rep)
 
-                assert k.shape == q.shape, f'{k.shape=} != {q.shape=}'
+            assert k.shape == q.shape, f'{k.shape=} != {q.shape=}'
 
             output = torch.empty_like(q)
             # head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
@@ -1390,10 +1394,12 @@ def minference_vllm_forward(
                 # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
                 # po_debug.debug_print(k_cache.shape)
 
-                cache_head = head % k_cache.shape[-2]
+                k_cache_head = head // k_n_rep
+                v_cache_head = head // v_n_rep
+
                 # po_debug.debug_print(cache_head)
-                k_head_cache = k_cache[:, :, cache_head, :].unsqueeze(2)
-                v_head_cache = v_cache[:, :, cache_head, :].unsqueeze(2)
+                k_head_cache = k_cache[:, :, k_cache_head, :].unsqueeze(2)
+                v_head_cache = v_cache[:, :, v_cache_head, :].unsqueeze(2)
 
                 po_debug.debug_print(k_cache.shape)
                 po_debug.debug_print(k_cache.stride())
