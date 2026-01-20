@@ -732,9 +732,11 @@ def block_sparse_attention_with_kvcache(
     # po_debug.debug_print(key.shape)
 
     all_kv_pad = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
-    # po_debug.debug_print(k_seqlen[0])
-    # po_debug.debug_print(all_kv_pad)
-    # po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    po_debug.debug_print(k_seqlen[0])
+    po_debug.debug_print(all_kv_pad)
+    po_debug.debug_print(k_seqlen[0] % block_size_N)
+    po_debug.debug_print(int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
 
     sm_scale = head_dim ** -0.5
