@@ -263,7 +263,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
-    k_tmp = tl.load(k_cache + tl.arange(0, 3)[None, :] * stride_kblock_size + tl.arange(0, BLOCK_DMODEL)[None, :] * stride_k_headdim)
+    off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_k_headdim
+    off_b = tl.arange(0, 3)[None, :] * stride_kblock_size
+    k_tmp = tl.load(k_cache + off_a + off_b)
     tl.device_print('k-tmp: ', k_tmp)
 
     # assert off_hz == 0, f'{off_hz=} != 0'
