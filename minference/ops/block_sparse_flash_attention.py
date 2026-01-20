@@ -604,12 +604,15 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
     head_dim = k_cache.shape[3]
 
     # Calculate number of blocks needed for seqlen
-    num_blocks_needed = (seqlen + block_size - 1) // block_size if seqlen != -1 else block_tables.shape[1]
+    num_blocks_needed = (seqlen + block_size - 1) // block_size
+    po_debug.debug_print(seqlen)
+    # po_debug.debug_print(block_size)
     
     # Gather blocks for each sequence in batch
     # block_tables: (#batch, max_block_per_seq)
     # We take only the first num_blocks_needed blocks
-    block_indices = block_tables[:, :num_blocks_needed]  # (#batch, num_blocks_needed)
+    assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where [0] != 1'
+    block_indices = block_tables[:, :num_blocks_needed]  # * block_indices \in (#batch, num_blocks_needed)
     
     # Gather the blocks from k_cache
     # k_cache[block_indices] would give us (#batch, num_blocks_needed, block_size, #kv_head, headdim)
@@ -617,6 +620,14 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
     
     # Reshape to merge blocks into sequence dimension
     # (#batch, num_blocks_needed * block_size, #kv_head, headdim)
+    po_debug.debug_print(gathered_blocks.shape)
+    # po_debug.debug_print(gathered_blocks)
+    po_debug.debug_print(block_indices)
+    po_debug.debug_print(k_cache.shape)
+    po_debug.debug_print(num_blocks_needed)
+    po_debug.debug_print(block_size)
+    po_debug.debug_print(num_kv_heads)
+    po_debug.debug_print(num_blocks_needed * block_size)
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
     
     # Trim to actual sequence length
@@ -636,6 +647,7 @@ def _build_block_index_with_kvcache(
     block_tables: torch.Tensor,     # * (#batch=1, max_block_per_seq)
     top_k: int,
     k_seqlen,
+    k_seqlen_pad,
     block_size_M: int = 64,
     block_size_N: int = 64,
 ):
@@ -667,7 +679,7 @@ def _build_block_index_with_kvcache(
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
 
     # * top_k cannot exceed p_pool[-1] dimension
-    top_k = min(top_k, k_seqlen // block_size_N)
+    top_k = min(top_k, k_seqlen_pad // block_size_N)
 
     # po_debug.debug_print(k_seqlen)
     # po_debug.debug_print(block_size_N)
@@ -687,7 +699,7 @@ def block_sparse_attention_with_kvcache(
     value: torch.Tensor,  # [BATCH, N_HEADS, N_CTX, D_HEAD]
     k_cache: torch.Tensor,                  # * (#block, block_size, #kv_head=1, headdim)
     v_cache: torch.Tensor,
-    block_tables: torch.Tensor,             # * (#batch, block_size), #batch == 1
+    block_tables: torch.Tensor,             # * (#batch=1, block_size)
     top_k: int,
     k_seqlen: torch.Tensor,
     block_size_M: int = 64, # might change to 16 (follow vllm block size)
@@ -721,15 +733,18 @@ def block_sparse_attention_with_kvcache(
     # po_debug.debug_print(key.shape)
 
     all_kv_pad = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
-    # po_debug.debug_print(k_seqlen[0])
-    # po_debug.debug_print(all_kv_pad)
-    # po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    po_debug.debug_print(k_seqlen[0])
+    po_debug.debug_print(all_kv_pad)
+    po_debug.debug_print(k_seqlen[0] % block_size_N)
+    po_debug.debug_print(int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
 
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
+        k_seqlen[0],
         all_kv_pad,
         block_size_N, block_size_N)
     
