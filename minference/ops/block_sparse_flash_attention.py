@@ -498,7 +498,7 @@ def _triton_block_sparse_attention_with_kvcache(
 
     acc2 = torch.einsum('i, i->', q_tmp, k_tmp)
     # po_debug.debug_print(acc2)
-    assert acc == acc2, f'{acc=} != {acc2}'
+    assert int(acc) == int(acc2), f'{acc=} != {acc2}'
 
     # po_debug.debug_print(sm_scale)
     # po_debug.debug_print(sm_scale * 1.44269504)
