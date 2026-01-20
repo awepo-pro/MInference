@@ -699,7 +699,7 @@ def block_sparse_attention_with_kvcache(
     value: torch.Tensor,  # [BATCH, N_HEADS, N_CTX, D_HEAD]
     k_cache: torch.Tensor,                  # * (#block, block_size, #kv_head=1, headdim)
     v_cache: torch.Tensor,
-    block_tables: torch.Tensor,             # * (#batch, block_size), #batch == 1
+    block_tables: torch.Tensor,             # * (#batch=1, block_size)
     top_k: int,
     k_seqlen: torch.Tensor,
     block_size_M: int = 64, # might change to 16 (follow vllm block size)
