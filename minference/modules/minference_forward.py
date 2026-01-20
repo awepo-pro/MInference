@@ -1389,6 +1389,8 @@ def minference_vllm_forward(
                 k_head_cache = k_cache[:, :, cache_head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, cache_head, :].unsqueeze(2)
 
+                po_debug.debug_print(k_cache.shape)
+                po_debug.debug_print(k_cache.stride())
                 po_debug.debug_print(k_head_cache.shape)
                 po_debug.debug_print(k_head_cache.stride())
 
