@@ -1363,7 +1363,7 @@ def minference_vllm_forward(
 
             # (seq_len, num_heads, head_size)
             if q.size(-2) != k.size(-2):
-                k = repeat_kv(k, k_n_rep))
+                k = repeat_kv(k, k_n_rep)
                 v = repeat_kv(v, v_n_rep)
 
             assert k.shape == q.shape, f'{k.shape=} != {q.shape=}'
@@ -1396,6 +1396,8 @@ def minference_vllm_forward(
 
                 k_cache_head = head // k_n_rep
                 v_cache_head = head // v_n_rep
+                assert k_cache_head < k_cache.size(2), f'{k_cache_head=} >= {k_cache.size(2)=}'
+                assert v_cache_head < v_cache.size(2), f'{v_cache_head=} >= {v_cache.size(2)=}'
 
                 # po_debug.debug_print(cache_head)
                 k_head_cache = k_cache[:, :, k_cache_head, :].unsqueeze(2)
