@@ -647,6 +647,7 @@ def _build_block_index_with_kvcache(
     block_tables: torch.Tensor,     # * (#batch=1, max_block_per_seq)
     top_k: int,
     k_seqlen,
+    k_seqlen_pad,
     block_size_M: int = 64,
     block_size_N: int = 64,
 ):
@@ -678,7 +679,7 @@ def _build_block_index_with_kvcache(
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
 
     # * top_k cannot exceed p_pool[-1] dimension
-    top_k = min(top_k, k_seqlen // block_size_N)
+    top_k = min(top_k, k_seqlen_pad // block_size_N)
 
     # po_debug.debug_print(k_seqlen)
     # po_debug.debug_print(block_size_N)
@@ -701,8 +702,8 @@ def block_sparse_attention_with_kvcache(
     block_tables: torch.Tensor,             # * (#batch, block_size), #batch == 1
     top_k: int,
     k_seqlen: torch.Tensor,
-    block_size_M: int = 16, # might change to 16 (follow vllm block size)
-    block_size_N: int = 16, # might change to 16 (follow vllm block size)
+    block_size_M: int = 64, # might change to 16 (follow vllm block size)
+    block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
     
     # po_debug.debug_print(query.shape)
@@ -743,6 +744,7 @@ def block_sparse_attention_with_kvcache(
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
+        k_seqlen[0],
         all_kv_pad,
         block_size_N, block_size_N)
     
