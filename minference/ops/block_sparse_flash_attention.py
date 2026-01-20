@@ -263,13 +263,13 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
-    # off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_k_headdim
-    # off_b = tl.arange(0, BLOCK_N)[None, :] * stride_kblock_size
-    # k_tmp = tl.load(k_cache + off_a + off_b)
+    off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_k_headdim
+    off_b = tl.arange(0, BLOCK_N)[None, :] * stride_kblock_size
+    k_tmp = tl.load(k_cache + off_a + off_b)
     # tl.device_print('off_a: ', off_a)
     # tl.device_print('off_b: ', off_b)
     # tl.device_print('idx: ', off_a + off_b)
-    # tl.device_print('k-tmp: ', k_tmp)
+    tl.device_print('k-tmp: ', k_tmp)
 
     # assert off_hz == 0, f'{off_hz=} != 0'
 
@@ -452,7 +452,7 @@ def _triton_block_sparse_attention_with_kvcache(
     # po_debug.debug_print(k_cache.stride(1))
     po_debug.debug_print(k_cache.shape)
     po_debug.debug_print(k_cache.stride())
-    po_debug.debug_print(k_cache[0][:10])
+    # po_debug.debug_print(k_cache[0][:10])
     # po_debug.debug_print(k_cache.flatten()[:200])
     po_debug.debug_print(k_cache.flatten()[0].to(torch.float16))
     po_debug.debug_print(k_cache.flatten()[64].to(torch.float32))    
