@@ -80,8 +80,8 @@ def main() -> None:
         dtype='float16',
         max_model_len=12800,
         block_size=256,
-        enable_chunked_prefill=True,
-        max_num_batched_tokens=64
+        # enable_chunked_prefill=True,
+        # max_num_batched_tokens=64
     )
 
     # Patch MInference Module
