@@ -583,7 +583,7 @@ def block_sparse_attention(
     return out[..., :context_size, :]
 
 
-def get_full_key_from_cache(k_cache, block_tables, seqlen):
+def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     """
     Reconstruct full key tensor from paged k_cache.
     
@@ -629,6 +629,10 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen):
     po_debug.debug_print(num_kv_heads)
     po_debug.debug_print(num_blocks_needed * block_size)
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
+
+    if seqlen != padlen:
+        assert padlen >= seqlen, f'{padlen=} < {seqlen=}'
+        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, padlen - seqlen, 0, 0, 0, 0])
     
     # Trim to actual sequence length
     full_key = full_key[:, :seqlen, :, :]  # (#batch, seqlen, #kv_head, headdim)
@@ -655,7 +659,7 @@ def _build_block_index_with_kvcache(
 
     # po_debug.debug_print(k_seqlen)
 
-    key = get_full_key_from_cache(k_cache, block_tables, k_seqlen)
+    key = get_full_key_from_cache(k_cache, block_tables, k_seqlen, k_seqlen_pad)
     # po_debug.debug_print(key.shape)
     # po_debug.debug_print(query.shape)
 
