@@ -263,13 +263,13 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
-    off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_v_headdim
-    off_b = tl.arange(0, BLOCK_N)[None, :] * stride_vblock_size
-    k_tmp = tl.load(v_cache + off_a + off_b)
+    # off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_v_headdim
+    # off_b = tl.arange(0, BLOCK_N)[None, :] * stride_vblock_size
+    # k_tmp = tl.load(v_cache + off_a + off_b)
     # tl.device_print('off_a: ', off_a)
     # tl.device_print('off_b: ', off_b)
     # tl.device_print('idx: ', off_a + off_b)
-    tl.device_print('v-tmp: ', k_tmp)
+    # tl.device_print('v-tmp: ', k_tmp)
 
     # assert off_hz == 0, f'{off_hz=} != 0'
 
@@ -305,6 +305,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
     # * start_point + batch_head_offset + block_offset + headdim_offset
+    # * ptrs /in (BLOCK_M, 1) \times (1, BLOCK_DMODEL) := (BLOCK_M, BLOCK_DMODEL)
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
 
@@ -339,6 +340,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * q_ptrs is a list, so load an array
     q = tl.load(q_ptrs)
     q = (q * qk_scale).to(dtype)
+
+    q_tmp = tl.load(q + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk)
+    tl.device_print('q-tmp: ', q_tmp)
 
     # loop over k, v and update accumulator
     m_mask = offs_m[:, None] < q_seqlen
