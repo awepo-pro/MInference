@@ -1567,6 +1567,7 @@ def minference_vllm_forward(
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
+            
             # Decoding run.
 
             # po_debug.debug_print(decode_meta.block_tables.numel()) # * must exist blocks in block tables
@@ -1580,16 +1581,16 @@ def minference_vllm_forward(
 
             assert num_prefill_query_tokens == 0, 'decode should only has 1 query'
             
-            output = flash_attn_with_kvcache(
-                decode_query.unsqueeze(1),           # * (1, 1, 14, 64)
-                key_cache,                               # * (#block, 256, #kv_head=2, headdim)
-                value_cache,
-                block_table=decode_meta.block_tables,
-                cache_seqlens=decode_meta.seq_lens_tensor,
-                softmax_scale=self.scale,
-                causal=True,
-                alibi_slopes=self.alibi_slopes,
-            ).squeeze(1)
+            # output = flash_attn_with_kvcache(
+            #     decode_query.unsqueeze(1),           # * (1, 1, 14, 64)
+            #     key_cache,                               # * (#block, 256, #kv_head=2, headdim)
+            #     value_cache,
+            #     block_table=decode_meta.block_tables,
+            #     cache_seqlens=decode_meta.seq_lens_tensor,
+            #     softmax_scale=self.scale,
+            #     causal=True,
+            #     alibi_slopes=self.alibi_slopes,
+            # ).squeeze(1)
 
             # po_debug.debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
             # po_debug.debug_print(output.shape) # * (1, 14, 64)
