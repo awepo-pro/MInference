@@ -628,6 +628,8 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     # po_debug.debug_print(block_size)
     # po_debug.debug_print(num_kv_heads)
     # po_debug.debug_print(num_blocks_needed * block_size)
+
+    # * num_blocks_needed * block_size := seqlen + pad
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
 
     # if seqlen != padlen:
