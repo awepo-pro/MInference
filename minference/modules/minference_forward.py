@@ -1322,18 +1322,17 @@ def minference_vllm_forward(
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
 
-                po_debug.debug_print(q_head.stride())
-                po_debug.debug_print(q.stride())
+                # po_debug.debug_print(q_head.stride())
+                # po_debug.debug_print(q.stride())
 
                 # (1, seq_len, num_heads, head_size)
                 q_head = q_head[None, ...]
                 k_head = k_head[None, ...]
                 v_head = v_head[None, ...]
 
-                po_debug.debug_print(q_head.stride())
-                po_debug.debug_print(q.stride())
+                # po_debug.debug_print(q_head.stride())
+                # po_debug.debug_print(q.stride())
 
-                exit()
                 q_head = q_head.transpose(1, 2)
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
