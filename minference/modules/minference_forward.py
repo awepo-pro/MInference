@@ -880,7 +880,7 @@ def block_sparse_topk_vllm_with_kvcache(
             # cu_seqlens_k, max_seqlen_k,
             block_tables,
             seq_lens: torch.Tensor, 
-            top_k=100) -> torch.Tensor:
+            top_k=2) -> torch.Tensor:
         return block_sparse_attention_with_kvcache(
             q, k, v,
             k_cache, v_cache,
