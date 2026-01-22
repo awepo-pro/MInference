@@ -15,6 +15,7 @@ def test(
     s_head_dim,
     BLOCK_SIZE_N: tl.constexpr,
     BLOCK_DIM: tl.constexpr,
+    dtype: tl.constexpr,
 ):
     head_id = 0
 
@@ -34,7 +35,7 @@ def test(
 
     k = tl.load(dst)
 
-    tl.store(o, k)
+    tl.store(o, k.to(dtype))
 
 
 def arange_allocate(size):
@@ -62,7 +63,6 @@ if __name__ == '__main__':
     
     grid = (1, 1, 1)
     
-    assert False
     test[grid](
         cache_head, 
         o,
