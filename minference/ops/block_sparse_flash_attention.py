@@ -638,7 +638,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)[:, seqlen, :, :]
 
     if seqlen != padlen:
-        assert padlen >= len, f'{padlen=} < {seqlen=}'
+        assert padlen >= seqlen, f'{padlen=} < {seqlen=}'
         # print('=' * 30 + 'activate')
         # po_debug.debug_print(full_key.shape)
         # po_debug.debug_print(padlen)
