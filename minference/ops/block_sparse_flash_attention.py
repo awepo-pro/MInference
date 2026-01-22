@@ -364,8 +364,6 @@ def _triton_block_sparse_attention(
         num_warps=4, num_stages=2,
     )
 
-    # po_debug.debug_print(o[0][0])
-
     return o
 
 @triton.jit
@@ -716,6 +714,9 @@ def block_sparse_attention(
         block_index, 
         sm_scale,
         block_size_M, block_size_N)
+    
+    po_debug.debug_print(out[0, 0, :context_size, :])
+    
     return out[..., :context_size, :]
 
 
