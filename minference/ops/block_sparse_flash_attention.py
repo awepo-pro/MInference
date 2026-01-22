@@ -695,8 +695,8 @@ def block_sparse_attention(
     
     pad = block_size_M - (query.shape[2] & (block_size_M - 1))
     query = torch.nn.functional.pad(query, [0, 0, 0, pad, 0, 0, 0, 0])
-    po_debug.debug_print(query.stride())
-    exit()
+    # po_debug.debug_print(query.stride())
+    # exit()
     key = torch.nn.functional.pad(key, [0, 0, 0, pad, 0, 0, 0, 0])
     value = torch.nn.functional.pad(value, [0, 0, 0, pad, 0, 0, 0, 0])
 
@@ -882,8 +882,8 @@ def block_sparse_attention_with_kvcache(
     # *     - if q_pad != block_size_M:
     # *     - if kv_pad != block_size_N:
     query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
-    po_debug.debug_print(query.stride())
-    exit()
+    # po_debug.debug_print(query.stride())
+    # exit()
 
     kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
     key = torch.nn.functional.pad(key, [0, 0, 0, kv_pad, 0, 0, 0, 0])

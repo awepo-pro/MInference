@@ -1334,8 +1334,8 @@ def minference_vllm_forward(
                 q_head = q_head.transpose(1, 2)
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
-                po_debug.debug_print(q_head.stride())
-                po_debug.debug_print(q.stride())
+                # po_debug.debug_print(q_head.stride())
+                # po_debug.debug_print(q.stride())
 
                 out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
 
