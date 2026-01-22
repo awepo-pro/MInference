@@ -929,6 +929,6 @@ def block_sparse_attention_with_kvcache(
         sm_scale,
         block_size_M, block_size_N)
 
-    po_debug.debug_print(out[0, 0, :context_size, :])
+    # po_debug.debug_print(out[0, 0, :context_size, :])
 
     return out[..., :context_size, :]
