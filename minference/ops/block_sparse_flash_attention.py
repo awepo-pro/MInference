@@ -608,7 +608,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
 
     # Calculate number of blocks needed for seqlen
     num_blocks_needed = (seqlen + block_size - 1) // block_size
-    po_debug.debug_print(seqlen)
+    # po_debug.debug_print(seqlen)
     # po_debug.debug_print(block_size)
     
     # Gather blocks for each sequence in batch
@@ -633,16 +633,16 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     # po_debug.debug_print(num_blocks_needed * block_size)
 
     # * num_blocks_needed * block_size := seqlen + pad
-    full_key = gathered_blocks.reshape(batch_size, max(num_blocks_needed * block_size, padlen), num_kv_heads, head_dim)
+    full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
 
-    # if len != padlen:
-    #     assert padlen >= len, f'{padlen=} < {len=}'
-    #     print('=' * 30 + 'activate')
-    #     po_debug.debug_print(full_key.shape)
-    #     po_debug.debug_print(padlen)
-    #     po_debug.debug_print(len)
-    #     full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - len, 0, 0])
-    #     po_debug.debug_print(full_key.shape)
+    if (len := num_blocks_needed * block_size) != padlen:
+        assert padlen >= len, f'{padlen=} < {len=}'
+        # print('=' * 30 + 'activate')
+        # po_debug.debug_print(full_key.shape)
+        # po_debug.debug_print(padlen)
+        # po_debug.debug_print(len)
+        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - len, 0, 0])
+        # po_debug.debug_print(full_key.shape)
 
     
     # Trim to actual sequence length
