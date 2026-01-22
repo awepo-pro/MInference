@@ -723,7 +723,7 @@ def block_sparse_attention_with_kvcache(
     v_cache: torch.Tensor,
     block_tables: torch.Tensor,             # * (#batch=1, block_size)
     top_k: int,
-    k_seqlen: torch.Tensor,                 # * key len without padded
+    k_seqlen_tensor: torch.Tensor,                 # * key len without padded
     block_size_M: int = 64, # might change to 16 (follow vllm block size)
     block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
@@ -738,7 +738,7 @@ def block_sparse_attention_with_kvcache(
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
     
     q_seqlen = query.shape[-2]
-    k_seqlen = k_seqlen[0]
+    k_seqlen = k_seqlen_tensor[0]
 
     # * pad to block_size_X, ie. seqlen = 16, block_size = 64 -> pad 48 [0] after seq
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
@@ -757,7 +757,7 @@ def block_sparse_attention_with_kvcache(
     # po_debug.debug_print(query.shape)
     # po_debug.debug_print(key.shape)
 
-    kv_padded_len = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
+    kv_padded_len = k_seqlen + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
     # po_debug.debug_print(k_seqlen[0])
     # po_debug.debug_print(kv_padded_len)
     # po_debug.debug_print(block_size_N % k_seqlen[0])
@@ -769,7 +769,7 @@ def block_sparse_attention_with_kvcache(
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
-        k_seqlen[0],
+        k_seqlen,
         kv_padded_len,
         block_size_M, block_size_N)
     
