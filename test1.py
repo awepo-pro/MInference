@@ -39,8 +39,8 @@ def test(
 
     # Store the 2D block into output
     # Note: o_ptr needs to be indexed similarly if you want to write to a specific location
-    # tl.store(o_ptr + block_offset + dim_offset, k.to(dtype))
-    tl.store(o_ptr, k.to(dtype))
+    tl.store(o_ptr + block_offset + dim_offset, k.to(dtype))
+    # tl.store(o_ptr, k.to(dtype))
 
 
 def arange_allocate(size):
