@@ -694,6 +694,8 @@ def block_sparse_attention(
     assert num_heads == 1, f'{num_heads=} != 1'
     
     pad = block_size_M - (query.shape[2] & (block_size_M - 1))
+    po_debug.debug_print(query.shape[2])
+    po_debug.debug_print(query.shape[2] + pad)
     query = torch.nn.functional.pad(query, [0, 0, 0, pad, 0, 0, 0, 0])
     # po_debug.debug_print(query.stride())
     # exit()
