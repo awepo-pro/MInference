@@ -17,22 +17,18 @@ def test(
     BLOCK_DIM: tl.constexpr,
     dtype: tl.constexpr,
 ):
-    head_id = 0
-
-    head_offset = head_id * s_num_head
-
     bt_id = 3
-
     bt_offset = bt_id * s_num_block
 
-    block_id = 0
+    head_id = 0
+    head_offset = head_id * s_num_head
 
+    block_id = 0
     block_offset = block_id * s_block_size + tl.arange(0, BLOCK_SIZE_N)
 
-    dim_offset = tl.arange(0, BLOCK_DIM) * s_head_dim
+    dim_offset = 0 * s_head_dim + tl.arange(0, BLOCK_DIM)
 
     dst = cache + bt_offset + head_offset + block_offset + dim_offset 
-
     k = tl.load(dst)
 
     tl.store(o, k.to(dtype))
