@@ -240,7 +240,9 @@ def _triton_block_sparse_attn_fwd_kernel2(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-    tmp_offset = K + kv_offset + tl.arange(0, 2)[None, :] * stride_kn + tl.arange(0, 3)[:, None] * stride_kk
+    ta: tl.constexpr = 2
+    tb: tl.constexpr = 3
+    tmp_offset = K + kv_offset + tl.arange(0, ta)[None, :] * stride_kn + tl.arange(0, tb)[:, None] * stride_kk
     tmp_k = tl.load(tmp_offset)
     tl.device_print('tmp_k: ', tmp_k)
 
