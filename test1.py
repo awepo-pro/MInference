@@ -4,7 +4,7 @@ import triton.language as tl
 
 @triton.jit
 def test(
-    cache_ptr,
+    cache_ptr,      # (#block, block_size, #head, headdim)
     o_ptr,
     s_num_block,
     s_block_size,
@@ -14,46 +14,36 @@ def test(
     BLOCK_DIM: tl.constexpr,
     dtype: tl.constexpr,
 ):
-    # Program IDs / Constants
-    bt_id = 3
+    # assume we want to locate half of the block table in block tables 
+    bt_id = 1.5
+    block_id = 1
     head_id = 0
-    block_id = 0
 
-    # Calculate base offsets
+    # use index to locate the place
     bt_offset = bt_id * s_num_block
     head_offset = head_id * s_num_head
-    
-    # Create 2D range offsets for broadcasting
-    # block_offset shape: (BLOCK_SIZE_N, 1) -> (8, 1)
-    block_offset = (block_id * s_block_size + tl.arange(0, BLOCK_SIZE_N))[:, None]
-    
-    # dim_offset shape: (1, BLOCK_DIM) -> (1, 64)
-    dim_offset = (0 * s_head_dim + tl.arange(0, BLOCK_DIM))[None, :]
 
-    # dst shape: (8, 64)
-    # Triton handles the pointer arithmetic by broadcasting the addition
-    dst_ptr = cache_ptr + bt_offset + head_offset + block_offset + dim_offset 
-    
-    # Load the 2D block
+    # use offset to locate every elements, tl.arange used for range
+    block_offset = (s_block_size * tl.arange(0, BLOCK_SIZE_N))[:, None]
+    dim_offset = (s_head_dim * tl.arange(0, BLOCK_DIM))[None, :]
+
+    dst_ptr = cache_ptr + bt_offset.to(tl.int32) + block_offset + head_offset + dim_offset 
     k = tl.load(dst_ptr)
 
-    # Store the 2D block into output
-    # Note: o_ptr needs to be indexed similarly if you want to write to a specific location
-    tl.store(o_ptr + bt_offset + head_offset + block_offset + dim_offset, k.to(dtype))
-    # tl.store(o_ptr, k.to(dtype))
+    # 1 head is hidden in cache_head, offset divide 2 times to ensure same place in o_ptr
+    tl.store(o_ptr + block_offset // 2 + dim_offset, k.to(dtype))
 
 
-def arange_allocate(size):
+def arange_allocate(size, dtype=torch.int32):
     # Use float32 or half for Triton kernels usually, but sticking to your int32 setup
-    x = torch.arange(1, torch.Size(size).numel() + 1, dtype=torch.int32).reshape(size).cuda()
+    x = torch.arange(1, torch.Size(size).numel() + 1, dtype=dtype).reshape(size).cuda()
     return x 
 
 if __name__ == '__main__':
-    # Ensure we are on CUDA
     device = torch.device('cuda')
 
     # (#b, b_size, #head, headdim) -> (10, 16, 2, 64)
-    cache = arange_allocate((10, 16, 2, 64))
+    cache = arange_allocate((3, 4, 2, 8))
     
     # Selecting a specific head: (10, 16, 1, 64)
     cache_head = cache[:, :, 0:1, :]
@@ -63,9 +53,14 @@ if __name__ == '__main__':
 
     # Get strides
     s_num_block, s_block_size, s_num_head, s_head_dim = cache_head.stride()
+    assert o.shape == cache_head.shape, f'{o.shape=} != {cache_head.shape=}'
     
+    print(o.stride())
+    print(o.shape)
+    print(cache_head.stride())
+    print(cache.stride())
     grid = (1, 1, 1)
-    
+
     test[grid](
         cache_head, 
         o,
@@ -73,12 +68,14 @@ if __name__ == '__main__':
         s_block_size,
         s_num_head,
         s_head_dim,
-        BLOCK_SIZE_N=8,
-        BLOCK_DIM=64,
-        dtype=tl.int32 # Adjusted to match cache.dtype
+        BLOCK_SIZE_N=cache_head.shape[1] // 2,
+        BLOCK_DIM=cache_head.shape[-1],
+        dtype=tl.int32      # doesn't use cache.dtype, troch.int32 != tl.int32
     )
 
-    # Verify the first 8 elements of the 4th batch (bt_id=3) were copied
+    # Verification
     print("Verification (First 5 elements of loaded block):")
-    print(o[3, 0, 0, :5])
-    print(cache[3, 0, 0, :5])
+    print(o[0, 0, 0, :5])
+    print(cache_head[1, 0, 0, :5])
+    # print(cache_head)
+    # print(o)
