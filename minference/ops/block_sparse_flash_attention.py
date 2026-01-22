@@ -639,7 +639,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
 
     po_debug.debug_print(full_key.shape)
 
-    full_key = full_key[:, seqlen, :, :]
+    full_key = full_key[:, :seqlen, :, :]
     po_debug.debug_print(full_key.shape)
 
 
