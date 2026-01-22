@@ -39,7 +39,7 @@ def test(
 
     # Store the 2D block into output
     # Note: o_ptr needs to be indexed similarly if you want to write to a specific location
-    tl.store(o_ptr + block_offset + dim_offset, k.to(dtype))
+    tl.store(o_ptr + bt_offset + head_offset + block_offset + dim_offset, k.to(dtype))
     # tl.store(o_ptr, k.to(dtype))
 
 
@@ -80,6 +80,5 @@ if __name__ == '__main__':
 
     # Verify the first 8 elements of the 4th batch (bt_id=3) were copied
     print("Verification (First 5 elements of loaded block):")
-    # print(o[3, 0, 0, :5])
-    print(o[0, 0, 0, :])
+    print(o[3, 0, 0, :5])
     print(cache[3, 0, 0, :5])
