@@ -48,7 +48,7 @@ def arange_allocate(size):
 if __name__ == '__main__':
 
     # cache = arange_allocate((10, 16, 2, 64))
-    cache = arange_allocate((1, 2, 3))
+    cache = arange_allocate((1, 2, 3, 4))
 
     cache_head = cache[:, :, 0:1, :]
 
