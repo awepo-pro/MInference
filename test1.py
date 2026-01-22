@@ -48,8 +48,9 @@ def arange_allocate(size):
 
 if __name__ == '__main__':
 
-    # cache = arange_allocate((10, 16, 2, 64))
-    cache = arange_allocate((1, 2, 3, 4))
+    # * (#b, b_size, #head, headdim)
+    cache = arange_allocate((10, 16, 2, 64))
+    # cache = arange_allocate((1, 2, 3, 4))
 
     cache_head = cache[:, :, 0:1, :]
     print(cache)
@@ -69,4 +70,7 @@ if __name__ == '__main__':
         s_num_block,
         s_block_size,
         s_num_head,
-        s_head_dim)
+        s_head_dim,
+        8,
+        64,
+        cache.dtype)
