@@ -1330,8 +1330,8 @@ def minference_vllm_forward(
                 k_head = k_head[None, ...]
                 v_head = v_head[None, ...]
 
-                # po_debug.debug_print(q_head.stride())
-                # po_debug.debug_print(q.stride())
+                po_debug.debug_print(q_head.stride())
+                po_debug.debug_print(q.stride())
 
                 q_head = q_head.transpose(1, 2)
                 k_head = k_head.transpose(1, 2)

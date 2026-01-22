@@ -240,9 +240,9 @@ def _triton_block_sparse_attn_fwd_kernel2(
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
 
-    tmp_offset = K + kv_offset + tl.arange(0, BLOCK_N)[None, :] * stride_kn + tl.arange(0, BLOCK_DMODEL)[:, None] * stride_kk
-    tmp_k = tl.load(tmp_offset)
-    tl.device_print('tmp_k: ', tmp_k)
+    # tmp_offset = K + kv_offset + tl.arange(0, BLOCK_N)[None, :] * stride_kn + tl.arange(0, BLOCK_DMODEL)[:, None] * stride_kk
+    # tmp_k = tl.load(tmp_offset)
+    # tl.device_print('tmp_k: ', tmp_k)
 
     # tl.device_print(H)
     # tl.device_print(off_hz // H)
@@ -695,6 +695,8 @@ def block_sparse_attention(
     
     pad = block_size_M - (query.shape[2] & (block_size_M - 1))
     query = torch.nn.functional.pad(query, [0, 0, 0, pad, 0, 0, 0, 0])
+    po_debug.debug_print(query.stride())
+    exit()
     key = torch.nn.functional.pad(key, [0, 0, 0, pad, 0, 0, 0, 0])
     value = torch.nn.functional.pad(value, [0, 0, 0, pad, 0, 0, 0, 0])
 
@@ -876,15 +878,16 @@ def block_sparse_attention_with_kvcache(
     # * pad to block_size_X, ie. seqlen = 16, block_size = 64 -> pad 48 [0] after seq
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
 
-    if q_pad != block_size_M:
-        # po_debug.debug_print(block_size_M)
-        query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
+    # * doesn't use this condition to determine if need padding or not! padding create new copy, that remove `view` from original QKV
+    # *     - if q_pad != block_size_M:
+    # *     - if kv_pad != block_size_N:
+    query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
+    po_debug.debug_print(query.stride())
+    exit()
 
     kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
-    if kv_pad != block_size_N:
-        # po_debug.debug_print(block_size_N)
-        key = torch.nn.functional.pad(key, [0, 0, 0, q_pad, 0, 0, 0, 0])
-        value = torch.nn.functional.pad(value, [0, 0, 0, q_pad, 0, 0, 0, 0])
+    key = torch.nn.functional.pad(key, [0, 0, 0, kv_pad, 0, 0, 0, 0])
+    value = torch.nn.functional.pad(value, [0, 0, 0, kv_pad, 0, 0, 0, 0])
 
     # po_debug.debug_print(q_pad)
     # po_debug.debug_print(query.shape)
