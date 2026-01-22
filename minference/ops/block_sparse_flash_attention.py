@@ -764,9 +764,9 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     # po_debug.debug_print(num_blocks_needed)
     # po_debug.debug_print(block_size)
     # po_debug.debug_print(num_kv_heads)
-    po_debug.debug_print(seqlen)
-    po_debug.debug_print(padlen)
-    po_debug.debug_print(num_blocks_needed * block_size)
+    # po_debug.debug_print(seqlen)
+    # po_debug.debug_print(padlen)
+    # po_debug.debug_print(num_blocks_needed * block_size)
 
     # * num_blocks_needed * block_size := ceil_div(seqlen, block_size)
     # * it is now padded with paged attention block_size, which is diff from block_size_N and block_size_M. 
@@ -928,5 +928,7 @@ def block_sparse_attention_with_kvcache(
         block_index, 
         sm_scale,
         block_size_M, block_size_N)
-    
+
+    po_debug.debug_print(out[0, 0, :context_size, :])
+
     return out[..., :context_size, :]
