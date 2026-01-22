@@ -12,7 +12,7 @@ def main() -> None:
     assert os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING') == '0', f'using multiprocessing, VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING")}'
 
     prompts = [
-        # "Hello my name is",    # * 4 words
+        "Hello my name is",    # * 4 words
         # "The president of the United States is",    # * 7 words
         # "The capital of France is cold",    # * 6 words
         # "The future of AI is",      # * 5 words
@@ -63,7 +63,7 @@ def main() -> None:
 # But if thou live, remembered not to be,
 # Die single and thine image dies with thee."""
 
-        "Shakespeare was born and raised in Stratford upon Avon Warwickshire At the age of 18 he Shakespeare was born and raised in Stratford upon Avon Warwickshire At the age of 18 he"
+        # "Shakespeare was born and raised in Stratford upon Avon Warwickshire At the age of 18 he Shakespeare was born and raised in Stratford upon Avon Warwickshire At the age of 18 he"
     ]
 
     sampling_params = SamplingParams(

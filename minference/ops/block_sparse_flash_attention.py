@@ -327,7 +327,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * off_d[:, None] \in (BLOCK_DMODEL, 1)
     # * k_base_ptrs \in (BLOCK_DMODEL, 1); 
     k_base_ptrs = k_cache + head_id * stride_num_khead + offs_d[:, None] * stride_k_headdim
-    raise Exception('debugging head_id')
+    # raise Exception('debugging head_id')
     # tl.device_print('head_id: ', head_id)       # * head_id = 0
     # tl.device_print('head_id * stride_num_khead: ', head_id * stride_num_khead)   # * = 0
     # * v_base_ptrs \in (1, BLOCK_DMODEL)
@@ -650,7 +650,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     
     # Transpose to match desired output shape: (#batch, #kv_head, seqlen, headdim)
     full_key = full_key.transpose(1, 2)  # (#batch, #kv_head, seqlen, headdim)
-    po_debug.debug_print(full_key.shape)       
+    # po_debug.debug_print(full_key.shape)       
     
     return full_key
 
