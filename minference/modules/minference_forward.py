@@ -836,7 +836,7 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
-    def block_sparse_kernel(q, k, v, top_k=100):
+    def block_sparse_kernel(q, k, v, top_k=2):
         return block_sparse_attention(q, k, v, top_k)
 
     def dense(q, k, v, vertical_size=None, slash_size=None):
