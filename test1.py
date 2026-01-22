@@ -51,6 +51,7 @@ if __name__ == '__main__':
     cache = arange_allocate((1, 2, 3, 4))
 
     cache_head = cache[:, :, 0:1, :]
+    print(cache)
 
     o = torch.empty_like(cache_head)
 
