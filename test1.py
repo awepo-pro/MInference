@@ -75,7 +75,5 @@ if __name__ == '__main__':
 
     # Verification
     print("Verification (First 5 elements of loaded block):")
-    print(o[0, 0, 0, :5])
-    print(cache_head[1, 0, 0, :5])
-    # print(cache_head)
-    # print(o)
+    print(cache_head)
+    print(o)
