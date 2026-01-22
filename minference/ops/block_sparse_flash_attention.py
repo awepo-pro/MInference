@@ -634,16 +634,16 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     po_debug.debug_print(padlen)
     po_debug.debug_print(num_blocks_needed * block_size)
 
-    # * num_blocks_needed * block_size := seqlen + pad
-    full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
+    # * num_blocks_needed * block_size := ceil_div(seqlen, block_size)
+    full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)[:, seqlen, :, :]
 
-    if (len := num_blocks_needed * block_size) != padlen:
-        assert padlen >= len, f'{padlen=} < {len=}'
+    if seqlen != padlen:
+        assert padlen >= len, f'{padlen=} < {seqlen=}'
         # print('=' * 30 + 'activate')
         # po_debug.debug_print(full_key.shape)
         # po_debug.debug_print(padlen)
         # po_debug.debug_print(len)
-        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - len, 0, 0])
+        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - seqlen, 0, 0])
         # po_debug.debug_print(full_key.shape)
 
     
@@ -726,8 +726,8 @@ def block_sparse_attention_with_kvcache(
     block_tables: torch.Tensor,             # * (#batch=1, block_size)
     top_k: int,
     k_seqlen_tensor: torch.Tensor,                 # * key len without padded
-    block_size_M: int = 256, # might change to 16 (follow vllm block size)
-    block_size_N: int = 256, # might change to 16 (follow vllm block size)
+    block_size_M: int = 64, # might change to 16 (follow vllm block size)
+    block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
     
     # po_debug.debug_print(query.shape)
