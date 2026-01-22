@@ -38,8 +38,8 @@ def test(
 
 
 def arange_allocate(size):
-    x = torch.zeros(size, dtype=torch.float16)
-    x = torch.arange(1, x.numel() + 1, dtype=torch.float16).reshape(x.shape)
+    x = torch.zeros(size, dtype=torch.int32)
+    x = torch.arange(1, x.numel() + 1, dtype=torch.int32).reshape(x.shape)
 
     return x 
 
@@ -47,7 +47,8 @@ def arange_allocate(size):
 
 if __name__ == '__main__':
 
-    cache = arange_allocate((10, 16, 2, 64))
+    # cache = arange_allocate((10, 16, 2, 64))
+    cache = arange_allocate((1, 2, 3))
 
     cache_head = cache[:, :, 0:1, :]
 

@@ -241,23 +241,25 @@ def _triton_block_sparse_attention(
 
 @triton.jit
 def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
-    Q,                            # * (b=1, h=1, seqlen, headdim)
-    k_cache,                        # * (#block, block_size=256, #kv_head=1, headdim)
+    Q,                              # * (b=1, h=1, q_seqlen_pad, headdim)
+    k_cache,                        # * (#block, block_size, #kv_head=1, headdim)
     v_cache,
-    q_seqlen,                       # * scalar
+    q_seqlen,                       # * scalar, without padded
     k_seqlen,
-    block_tables,                 # * (#batch=1, max_num_block_per_seq=max_seq / block), max_seq := max model len, block := 16 (by default)
-    bt_batch,                     # * #batch                in block_tables
-    bt_num_block,                     # * max_num_block_per_seq in block_tables
+    block_tables,                   # * (#batch=1, seqlen // block_size), might pre-allocated (#batch, max(seqlen) // block_size)
+    bt_batch,                       # * #batch                in block_tables
+    bt_num_block,                   # * seqlen // block_size  in block_tables
     stride_bt_a,                    # * block_tables.stride(0)
     stride_bt_b,                    # * block_tables.stride(1)
     sm_scale,
-    block_index,                        # * (b, h, NUM_ROWS=ceil_div(seqlen, block_size_M), topk=MAX_BLOCKS_PER_ROW)
+    block_index,                    # * (b, h, NUM_ROWS=ceil_div(seqlen, block_size_M), topk=MAX_BLOCKS_PER_ROW)
     Out,
+
     stride_qz, stride_qh, stride_qm, stride_qk,
     stride_kblock, stride_kblock_size, stride_num_khead, stride_k_headdim,     
     stride_vblock, stride_vblock_size, stride_num_vhead, stride_v_headdim,
     stride_oz, stride_oh, stride_om, stride_ok,
+
     Z: tl.constexpr, H: tl.constexpr, N_CTX: tl.constexpr,                        # * Z, H, N_CTX := q.shape[0, 1, 2]
     NUM_ROWS: tl.constexpr, MAX_BLOCKS_PRE_ROW: tl.constexpr,
     BLOCK_M: tl.constexpr,
@@ -271,6 +273,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
+    assert off_hz == 1, 'off_hz != 1'
+
     # off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_v_headdim
     # off_b = tl.arange(0, BLOCK_N)[None, :] * stride_vblock_size
     # k_tmp = tl.load(v_cache + off_a + off_b)
@@ -279,22 +283,18 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # tl.device_print('idx: ', off_a + off_b)
     # tl.device_print('v-tmp: ', k_tmp)
 
-    # assert off_hz == 0, f'{off_hz=} != 0'
-
-    # * seqlen of corresponding batch
-    seqlen = q_seqlen
     # * do nothing if padding
-    if start_m * BLOCK_M >= seqlen:
+    if start_m * BLOCK_M >= q_seqlen:
         return
 
     # initialize offsets
-    # * we treat QKV as \in (b, h, seqlen // block_size_M, headdim)
+    # * we treat QKV as padded -> (b, h, ceil_div(seqlen // block_size_M), headdim)
 
-    # * start_m * block_M := starting position of current block (among seqlen // block_size_M)
+    # * start_m * block_M := starting position of current block (among q_seqlen_pad // block_size_M), ie.
     # *     - 4 blocks in 1 head (seqlen = 128) -> 1st: [0, 32), 2nd: [32, 64), 3th: [64, 96), 4th: [96, 128)
     # *     - now in 3th -> start * block_M = 64; +tl.arange(0, block_M) := [32, 64)
 
-    # * converted into list with `tl.arange` to get the exact location    + offs_d[:, None] * stride_of each elements
+    # * query block is deteremined, now we traverse every kv blocks
     offs_m = start_m * BLOCK_M + tl.arange(0, BLOCK_M)
     offs_n = tl.arange(0, BLOCK_N)
     offs_d = tl.arange(0, BLOCK_DMODEL)
@@ -303,21 +303,23 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     batch_id = off_hz // H
     head_id = off_hz // Z
 
+    assert batch_id == 0, 'batch_id != 0'
+    assert head_id == 0, 'head_id != 0'
+
     # * offset of batch and head, 
-    # * assert qo_offset == 0
     qo_offset = batch_id * stride_qz + (off_hz % H) * stride_qh
-    # tl.device_print('off_hz % H: ', off_hz % H)             # * = 0
+    assert qo_offset == 0
+
 
     # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
     # *     - Q might not contiguous tensor, stride is generalized method 
-    # *     - blocks_ptr is contiguous, might use size of stride to compute
+    # *     - blocks_ptr is contiguous, might use size or stride to compute
 
     # * start_point + batch_head_offset + block_offset + headdim_offset
     # * ptrs /in (BLOCK_M, 1) \times (1, BLOCK_DMODEL) := (BLOCK_M, BLOCK_DMODEL)
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
 
-    # tl.device_print('qo_offset: ', qo_offset)                                       # * qo_offset = 0
     # tl.device_print('q_ptrs: ', qo_offset + offs_m[:, None])                        # * [0, block_M)
 
 
@@ -325,6 +327,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * off_d[:, None] \in (BLOCK_DMODEL, 1)
     # * k_base_ptrs \in (BLOCK_DMODEL, 1); 
     k_base_ptrs = k_cache + head_id * stride_num_khead + offs_d[:, None] * stride_k_headdim
+    raise Exception('debugging head_id')
     # tl.device_print('head_id: ', head_id)       # * head_id = 0
     # tl.device_print('head_id * stride_num_khead: ', head_id * stride_num_khead)   # * = 0
     # * v_base_ptrs \in (1, BLOCK_DMODEL)
@@ -454,8 +457,8 @@ def _triton_block_sparse_attention_with_kvcache(
     q,                 # * [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
     k_cache,           # * (#block, block_size=256, #kv_head=2, headdim)
     v_cache,
-    q_seqlen,          # * scalar
-    k_seqlen,
+    q_seqlen,          # * scalar, without padded
+    k_seqlen,          # * scalar, without padded
     block_tables,      # * (#batch, max_num_block_per_seq)
     block_index,       # [BATCH, N_HEADS, cdiv(N_CTX, BLOCK_SIZE_M), MAX_BLOCKS_PRE_ROW], MAX_BLOCKS_PER_ROW := min(topk, seqlen // block_size_N)
     sm_scale,
@@ -517,7 +520,7 @@ def _triton_block_sparse_attention_with_kvcache(
     BLOCK_SIZE = k_cache.shape[1]
 
 
-    # * grid := (#block_M, 1)
+    # * grid := (#query_block, 1, 1)
     _triton_block_sparse_attn_fwd_kernel_with_kvcache[grid](
         q, 
         k_cache, 
@@ -630,17 +633,16 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     # po_debug.debug_print(num_blocks_needed * block_size)
 
     # * num_blocks_needed * block_size := seqlen + pad
-    full_key = gathered_blocks.reshape(batch_size, num_blocks_needed * block_size, num_kv_heads, head_dim)
-    len =  num_blocks_needed * block_size
+    full_key = gathered_blocks.reshape(batch_size, max(num_blocks_needed * block_size, padlen), num_kv_heads, head_dim)
 
-    if len != padlen:
-        assert padlen >= len, f'{padlen=} < {len=}'
-        print('=' * 30 + 'activate')
-        po_debug.debug_print(full_key.shape)
-        po_debug.debug_print(padlen)
-        po_debug.debug_print(len)
-        full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - len, 0, 0])
-        po_debug.debug_print(full_key.shape)
+    # if len != padlen:
+    #     assert padlen >= len, f'{padlen=} < {len=}'
+    #     print('=' * 30 + 'activate')
+    #     po_debug.debug_print(full_key.shape)
+    #     po_debug.debug_print(padlen)
+    #     po_debug.debug_print(len)
+    #     full_key = torch.nn.functional.pad(full_key, [0, 0, 0, 0, 0, padlen - len, 0, 0])
+    #     po_debug.debug_print(full_key.shape)
 
     
     # Trim to actual sequence length
@@ -673,13 +675,17 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(key.shape)
     # po_debug.debug_print(query.shape)
 
-    # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
-    # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
+    # * align_up := https://www.notion.so/anton-po/module-2e03e281dfc18049abd0d79a65358040?source=copy_link
+    # * query.reshape := (b, n, align_up(seqlen, block_size_M), headdim) -> (b, n, ceil_div(seqlen, block_size_M), block_size_M, headdim))
+    # * query.reshape.mean(dim=-2) := (b, n, ceil_div(seqlen, block_size_M), block_size_M, headdim) -> (b, n, ceil_div(seqlen, block_size_M), headdim)
     # * it means compress seqlen into blocks by averaging them 
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
-    # * arange(end=query_pool.shape[-2]) := arange(seqlen // block_size_M) -> [0, 1, 2, ..., seqlen // block_size_M)
+    # * query_pool  \in (b, n, ceil_div(q_seqlen, block_size_M), headdim)
+    # * key_pool    \in (b, n, ceil_div(k_seqlen, block_size_N), headdim)
+    
+    # * arange(end=query_pool.shape[-2]) := arange(ceil_div(q_seqlen, block_size_M)) -> [0, 1, 2, ..., ceil_div(q_seqlen, block_size_M))
     # * arange * block_size_M := starting position of each query block
     arange_M = torch.arange(query_pool.shape[-2], dtype=torch.int32, device=query.device) * block_size_M
     arange_N = torch.arange(key_pool.shape[-2], dtype=torch.int32, device=key.device) * block_size_N
@@ -687,12 +693,13 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(query_pool.shape)
     # po_debug.debug_print(key_pool.shape)
 
-    # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
-    p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
+    # * (b, n, ceil_div(q_seqlen, block_size_M), ceil_div(k_seqlen, block_size_N))
+    p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
 
-    # * top_k cannot exceed p_pool[-1] dimension
+    # * top_k cannot exceed p_pool[-1] dimension, 
+    # * assert ceil_div(k_seqlen, block_size_N) == k_seqlen_pad // block_size_N, since k_seqlen_pad := ceil_div(k_seqlen, block_size_N) * block_size_N
     top_k = min(top_k, k_seqlen_pad // block_size_N)
 
     # po_debug.debug_print(k_seqlen)
@@ -702,8 +709,9 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(p_pool.shape)
     
     # * find topk row by row,
-    # * topk.indices \in (b, h, m, topk), topk := scalar
+    # * topk.indices \in (b, h, q_seqlen_pad // block_size_M, top_k), where topk := scalar
     # * indices.sort return (values, indices), since we sort the indices, so values = indices
+    # * result_indices \in (b, h, q_seqlen_pad // block_size_M, top_k)
     return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
 
 
@@ -715,7 +723,7 @@ def block_sparse_attention_with_kvcache(
     v_cache: torch.Tensor,
     block_tables: torch.Tensor,             # * (#batch=1, block_size)
     top_k: int,
-    k_seqlen: torch.Tensor,
+    k_seqlen: torch.Tensor,                 # * key len without padded
     block_size_M: int = 64, # might change to 16 (follow vllm block size)
     block_size_N: int = 64, # might change to 16 (follow vllm block size)
 ):
@@ -730,6 +738,9 @@ def block_sparse_attention_with_kvcache(
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
     
     q_seqlen = query.shape[-2]
+    k_seqlen = k_seqlen[0]
+
+    # * pad to block_size_X, ie. seqlen = 16, block_size = 64 -> pad 48 [0] after seq
     q_pad = block_size_M - (query.shape[2] & (block_size_M - 1))
 
     if q_pad != block_size_M:
@@ -746,12 +757,12 @@ def block_sparse_attention_with_kvcache(
     # po_debug.debug_print(query.shape)
     # po_debug.debug_print(key.shape)
 
-    all_kv_pad = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
-    po_debug.debug_print(k_seqlen[0])
-    po_debug.debug_print(all_kv_pad)
-    po_debug.debug_print(block_size_N % k_seqlen[0])
-    po_debug.debug_print(int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
-    po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    kv_padded_len = k_seqlen[0] + int(block_size_N - (k_seqlen[0] & (block_size_N - 1)))
+    # po_debug.debug_print(k_seqlen[0])
+    # po_debug.debug_print(kv_padded_len)
+    # po_debug.debug_print(block_size_N % k_seqlen[0])
+    # po_debug.debug_print(int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
+    # po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
 
 
     sm_scale = head_dim ** -0.5
@@ -759,7 +770,7 @@ def block_sparse_attention_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
         k_seqlen[0],
-        all_kv_pad,
+        kv_padded_len,
         block_size_M, block_size_N)
     
     
@@ -772,8 +783,8 @@ def block_sparse_attention_with_kvcache(
         query,
         k_cache, 
         v_cache,
-        q_seqlen,
-        k_seqlen[0],
+        q_seqlen,       # * without padded
+        k_seqlen,       # * without padded
         block_tables,
         block_index, 
         sm_scale,
