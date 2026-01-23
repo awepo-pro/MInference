@@ -491,6 +491,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # tl.device_print('offs_m: ', offs_m[:, None])
     # tl.device_print('q_seqlen: ', q_seqlen)
     block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
+    tl.device_print('block count: ', block_count)
 
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
@@ -505,7 +506,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
         physical_index = tl.load(physical_idx)
         # tl.device_print('real_block_idx: ', real_block_idx)
-        tl.device_print('physical_index: ', physical_index)
+        # tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
