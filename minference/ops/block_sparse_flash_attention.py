@@ -933,7 +933,7 @@ def block_sparse_attention_with_kvcache(
     po_debug.debug_print(k_seqlen)
 
     kv_padded_len = int(block_size_N - (k_seqlen & (block_size_N - 1)))
-    kv_padded_len = kv_padded_len + k_seqlen if kv_padded_len != block_size_N else kv_padded_len
+    kv_padded_len = kv_padded_len + k_seqlen if kv_padded_len != block_size_N else k_seqlen
     # po_debug.debug_print(k_seqlen[0])
     # po_debug.debug_print(kv_padded_len)
     # po_debug.debug_print(block_size_N % k_seqlen[0])
