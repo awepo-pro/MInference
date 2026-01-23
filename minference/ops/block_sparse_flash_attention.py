@@ -864,11 +864,11 @@ def _build_block_index_with_kvcache(
     # * indices.sort return (values, indices), since we sort the indices, so values = indices
     # * result_indices \in (b, h, q_seqlen_pad // block_size_M, top_k)
     
-    block_size = k_cache[1]
+    block_size = int(k_cache[1])
     assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
     assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
-    return (torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values / block_size).to(torch.float16)
+    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
 
 
 def block_sparse_attention_with_kvcache(
