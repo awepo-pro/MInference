@@ -41,6 +41,7 @@ def _build_block_index(
     po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
+    po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
 
     # po_debug.debug_print(p_pool.shape)
 
@@ -815,6 +816,7 @@ def _build_block_index_with_kvcache(
     k_cache: torch.Tensor,       # * (#block, block_size, #kv_head=1, headdim)
     block_tables: torch.Tensor,     # * (#batch=1, max_block_per_seq)
     top_k: int,
+    q_seqlen,
     k_seqlen,
     k_seqlen_pad,
     block_size_M: int = 64,
@@ -836,6 +838,8 @@ def _build_block_index_with_kvcache(
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
+    abs_query_pos = k_seqlen - q_seqlen
+
     # * query_pool  \in (b, n, ceil_div(q_seqlen, block_size_M), headdim)
     # * key_pool    \in (b, n, ceil_div(k_seqlen, block_size_N), headdim)
     
@@ -849,9 +853,10 @@ def _build_block_index_with_kvcache(
 
     # * (b, n, ceil_div(q_seqlen, block_size_M), ceil_div(k_seqlen, block_size_N))
     p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
-    po_debug.debug_print(key_pool[0, 0, 0, :])
+    # po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
-    p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
+    p_pool = p_pool.where(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :], -torch.inf)
+    po_debug.debug_print(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :])
 
     # * top_k cannot exceed p_pool[-1] dimension, 
     # * assert ceil_div(k_seqlen, block_size_N) == k_seqlen_pad // block_size_N, since k_seqlen_pad := ceil_div(k_seqlen, block_size_N) * block_size_N
@@ -930,6 +935,7 @@ def block_sparse_attention_with_kvcache(
     block_index = _build_block_index_with_kvcache(
         query, k_cache, block_tables,
         top_k, 
+        q_seqlen,
         k_seqlen,
         kv_padded_len,
         block_size_M, block_size_N)
