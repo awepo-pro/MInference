@@ -504,8 +504,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
-        tl.device_print('real_block_idx: ', real_block_idx)
-        tl.device_print('physical_index: ', physical_index)
+        # tl.device_print('real_block_idx: ', real_block_idx)
+        # tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
@@ -930,18 +930,8 @@ def block_sparse_attention_with_kvcache(
     # po_debug.debug_print(query.shape)
     # po_debug.debug_print(key.shape)
 
-    po_debug.debug_print(k_seqlen)
-
     kv_padded_len = int(block_size_N - (k_seqlen & (block_size_N - 1)))
     kv_padded_len = kv_padded_len + k_seqlen if kv_padded_len != block_size_N else k_seqlen
-    # po_debug.debug_print(k_seqlen[0])
-    # po_debug.debug_print(kv_padded_len)
-    # po_debug.debug_print(block_size_N % k_seqlen[0])
-    # po_debug.debug_print(int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
-    # po_debug.debug_print(k_seqlen[0] % block_size_N == int(block_size_N - (k_seqlen[0] & (block_size_N - 1))))
-
-
-    po_debug.debug_print(kv_padded_len)
 
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index_with_kvcache(
