@@ -22,8 +22,8 @@ def _build_block_index(
     block_size_N: int = 64,
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
-    # po_debug.debug_print(key.shape)
-    # po_debug.debug_print(query.shape)
+    po_debug.debug_print(key.shape)
+    po_debug.debug_print(query.shape)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
@@ -825,8 +825,8 @@ def _build_block_index_with_kvcache(
 
     # * key \in (#batch, k_seqlen_pad, #head, head_dim)
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen, k_seqlen_pad)
-    # po_debug.debug_print(key.shape)
-    # po_debug.debug_print(query.shape)
+    po_debug.debug_print(key.shape)
+    po_debug.debug_print(query.shape)
 
     # * align_up := https://www.notion.so/anton-po/module-2e03e281dfc18049abd0d79a65358040?source=copy_link
     # * query.reshape := (b, n, align_up(seqlen, block_size_M), headdim) -> (b, n, ceil_div(seqlen, block_size_M), block_size_M, headdim))
