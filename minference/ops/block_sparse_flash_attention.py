@@ -914,11 +914,15 @@ def block_sparse_attention_with_kvcache(
     # * doesn't use this condition to determine if need padding or not! padding create new copy, that remove `view` from original QKV
     # *     - if q_pad != block_size_M:
     # *     - if kv_pad != block_size_N:
+    if q_pad == block_size_M:
+        q_pad = 0
     query = torch.nn.functional.pad(query, [0, 0, 0, q_pad, 0, 0, 0, 0])
     # po_debug.debug_print(query.stride())
     # exit()
 
     kv_pad = block_size_N - (key.shape[2] & (block_size_N - 1))
+    if kv_pad == block_size_N:
+        kv_pad = 0
     key = torch.nn.functional.pad(key, [0, 0, 0, kv_pad, 0, 0, 0, 0])
     value = torch.nn.functional.pad(value, [0, 0, 0, kv_pad, 0, 0, 0, 0])
 
