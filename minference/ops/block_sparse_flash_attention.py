@@ -684,7 +684,7 @@ def _triton_block_sparse_attention_with_kvcache(
         BLOCK_SIZE=BLOCK_SIZE
     )
 
-    po_debug.debug_print(o[0][0])
+    # po_debug.debug_print(o[0][0])
 
     return o
 
@@ -801,6 +801,7 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, padlen):
     full_key = full_key.transpose(1, 2)  # (#batch, #kv_head, seqlen, headdim)
     # po_debug.debug_print(full_key.shape)       
     
+    # * full_key \in (#batch, padlen, #heads, head_dim)
     return full_key
 
 # Usage:
@@ -820,6 +821,7 @@ def _build_block_index_with_kvcache(
 
     # po_debug.debug_print(k_seqlen)
 
+    # * key \in (#batch, k_seqlen_pad, #head, head_dim)
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen, k_seqlen_pad)
     # po_debug.debug_print(key.shape)
     # po_debug.debug_print(query.shape)
@@ -861,7 +863,12 @@ def _build_block_index_with_kvcache(
     # * topk.indices \in (b, h, q_seqlen_pad // block_size_M, top_k), where topk := scalar
     # * indices.sort return (values, indices), since we sort the indices, so values = indices
     # * result_indices \in (b, h, q_seqlen_pad // block_size_M, top_k)
-    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
+    
+    block_size = k_cache[1]
+    assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
+    assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
+
+    return (torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values / block_size).to(torch.float16)
 
 
 def block_sparse_attention_with_kvcache(
@@ -923,6 +930,8 @@ def block_sparse_attention_with_kvcache(
         kv_padded_len,
         block_size_M, block_size_N)
     
+    po_debug.debug_print(block_index)
+    exit()
     
     
     # with open('output.txt', 'a') as output:
