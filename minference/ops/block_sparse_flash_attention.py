@@ -492,7 +492,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # tl.device_print('q_seqlen: ', q_seqlen)
     # block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
     block_count = MAX_BLOCKS_PRE_ROW
-    tl.device_print('block count: ', block_count)
+    # tl.device_print('block count: ', block_count)
 
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
