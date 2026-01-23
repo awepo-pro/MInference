@@ -400,7 +400,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
-    assert off_hz == 1, 'off_hz != 1'
+    assert off_hz == 0, 'off_hz != 1'
 
     # off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_v_headdim
     # off_b = tl.arange(0, BLOCK_N)[None, :] * stride_vblock_size
@@ -462,9 +462,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
     # * NUM_ROWS := no. of rows in each block
     # * off_hz * NUM_ROWS := move to the current head; start_m := determine current block
-    # * assert (off_hz * NUM_ROWS + start_m) * MAX_BLOCKS_PRE_ROW == start_m * MAX_BLOCKS_PRE_ROW
-    blocks_ptr = block_index + start_m * MAX_BLOCKS_PRE_ROW
+    assert (off_hz * NUM_ROWS + start_m) * MAX_BLOCKS_PRE_ROW == start_m * MAX_BLOCKS_PRE_ROW, 'blocks_ptr error!'
+    # blocks_ptr = block_index + start_m * MAX_BLOCKS_PRE_ROW
     # tl.device_print('new blocks ptr: ', start_n * MAX_BLOCKS_PRE_ROW)     # * starting position of block index (block_index.shape[0] := num of query blocks)
+    blocks_ptr = block_index + (off_hz * NUM_ROWS + start_m) * MAX_BLOCKS_PRE_ROW
 
     # initialize pointer to m and l
     m_i = tl.zeros([BLOCK_M], dtype=tl.float32) - float("inf")
@@ -501,15 +502,20 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
-        # tl.device_print('physical_index: ', physical_index)
+        tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
         # * #block, block_size
         # * k_base_ptrs \in (BLOCK_DMODEL, 1) \plus (1, BLOCK_N) -> (BLOCK_DEMOEL, BLOCK_N)
+        # k_ptrs = k_base_ptrs \
+        #         + physical_index * stride_kblock \
+        #         + (bt_block_index + offs_n)[None, :] * stride_kblock_size
+
         k_ptrs = k_base_ptrs \
-                + physical_index * stride_kblock \
-                + (bt_block_index + offs_n)[None, :] * stride_kblock_size
+                + (physical_index + bt_block_index / BLOCK_SIZE).to(dtype) * stride_kblock \
+                + offs_n[None, :] * stride_kblock_size
+
         
         # tl.device_print('physical_index * stride_kblock: ', physical_index * stride_kblock) # * = 0
         # tl.device_print('bt_block_index: ', bt_block_index)   # * = 0
