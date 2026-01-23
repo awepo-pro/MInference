@@ -72,8 +72,9 @@ def main() -> None:
     ]
 
     sampling_params = SamplingParams(
-        temperature=1.0,
-        top_p=0.95,
+        temperature=0,
+        top_p=1.0,
+        top_k=-1,
         max_tokens=30,
         seed=42
     )
