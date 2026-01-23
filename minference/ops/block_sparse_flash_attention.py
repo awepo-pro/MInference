@@ -504,6 +504,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
+        tl.device_print('real_block_idx: ', real_block_idx)
         tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
