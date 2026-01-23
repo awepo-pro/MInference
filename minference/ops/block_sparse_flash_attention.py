@@ -513,7 +513,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         #         + (bt_block_index + offs_n)[None, :] * stride_kblock_size
 
         k_ptrs = k_base_ptrs \
-                + (physical_index + bt_block_index / BLOCK_SIZE).to(tl.int32) * stride_kblock \
+                + ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock).to(tl.int32) \
                 + offs_n[None, :] * stride_kblock_size
 
         
