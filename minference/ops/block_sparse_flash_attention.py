@@ -38,6 +38,7 @@ def _build_block_index(
 
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum(f'bhmk, bhnk -> bhmn', query_pool, key_pool)
+    po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
 
@@ -728,7 +729,7 @@ def block_sparse_attention(
         sm_scale,
         block_size_M, block_size_N)
     
-    po_debug.debug_print(out[0, 0, :context_size, :])
+    # po_debug.debug_print(out[0, 0, :context_size, :])
     
     return out[..., :context_size, :]
 
@@ -848,6 +849,7 @@ def _build_block_index_with_kvcache(
 
     # * (b, n, ceil_div(q_seqlen, block_size_M), ceil_div(k_seqlen, block_size_N))
     p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
+    po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
 
