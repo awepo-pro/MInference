@@ -857,6 +857,7 @@ def _build_block_index_with_kvcache(
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :], -torch.inf)
     po_debug.debug_print(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :])
+    po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
 
     # * top_k cannot exceed p_pool[-1] dimension, 
     # * assert ceil_div(k_seqlen, block_size_N) == k_seqlen_pad // block_size_N, since k_seqlen_pad := ceil_div(k_seqlen, block_size_N) * block_size_N
