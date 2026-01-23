@@ -38,10 +38,10 @@ def _build_block_index(
 
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
-    po_debug.debug_print(key_pool[0, 0, 0, :])
+    # po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
-    po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
+    # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
 
     # po_debug.debug_print(p_pool.shape)
 
@@ -504,6 +504,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
+        tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
@@ -856,8 +857,8 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :], -torch.inf)
-    po_debug.debug_print(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :])
-    po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
+    # po_debug.debug_print(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :])
+    # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
 
     # * top_k cannot exceed p_pool[-1] dimension, 
     # * assert ceil_div(k_seqlen, block_size_N) == k_seqlen_pad // block_size_N, since k_seqlen_pad := ceil_div(k_seqlen, block_size_N) * block_size_N
@@ -878,7 +879,7 @@ def _build_block_index_with_kvcache(
     assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
     assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
-    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
+    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values * 0 + key_pool[-2] - 1
 
 
 def block_sparse_attention_with_kvcache(
