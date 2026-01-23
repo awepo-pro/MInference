@@ -502,7 +502,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
-        tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
@@ -515,6 +514,9 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         k_ptrs = k_base_ptrs \
                 + ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock).to(tl.int32) \
                 + offs_n[None, :] * stride_kblock_size
+        
+        tl.device_print('fp16: ', ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock))
+        tl.device_print('new: ', ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock).to(tl.int32))
 
         
         # tl.device_print('physical_index * stride_kblock: ', physical_index * stride_kblock) # * = 0
@@ -529,7 +531,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         v_ptrs = v_base_ptrs \
                 + ((physical_index + bt_block_index / BLOCK_SIZE) * stride_vblock).to(tl.int32) \
                 + offs_n[:, None] * stride_vblock_size
-                
+
         # -- load k, v --
         k = tl.load(k_ptrs)
 
