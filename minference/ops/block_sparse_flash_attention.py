@@ -931,7 +931,7 @@ def block_sparse_attention_with_kvcache(
         block_size_M, block_size_N)
     
     po_debug.debug_print(block_index)
-    exit()
+    # exit()
     
     
     # with open('output.txt', 'a') as output:
