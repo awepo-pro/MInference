@@ -879,7 +879,7 @@ def _build_block_index_with_kvcache(
     assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
     assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
-    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values * 0 + key_pool[-2] - 1
+    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values * 0 + key_pool.shape[-2] - 1
 
 
 def block_sparse_attention_with_kvcache(
