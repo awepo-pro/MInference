@@ -716,6 +716,8 @@ def block_sparse_attention(
     sm_scale = head_dim ** -0.5
     block_index = _build_block_index(query, key, top_k, block_size_N, block_size_N)
 
+    po_debug.debug_print(block_index)
+
     # with open('output2.txt', 'a') as output:
     #     po_debug.debug_print(block_index, comment="normal", out=output)
     
