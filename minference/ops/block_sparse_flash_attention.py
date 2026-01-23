@@ -50,8 +50,7 @@ def _build_block_index(
     # * find topk row by row,
     # * topk.indices \in (b, h, m, topk), topk := scalar
     # * indices.sort return (values, indices), since we sort the indices, so values = indices
-    # return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
-    return 0
+    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values * 0
 
 
 # @triton.autotune(
@@ -873,8 +872,7 @@ def _build_block_index_with_kvcache(
     assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
     assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
-    # return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values
-    return 0
+    return torch.topk(p_pool, top_k, dim=-1).indices.to(torch.int32).sort(dim=-1).values * 0
 
 
 def block_sparse_attention_with_kvcache(
