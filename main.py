@@ -71,7 +71,7 @@ def main() -> None:
 
     ]
 
-    with open('dataset/data1', 'r') as input:
+    with open('dataset/1.txt', 'r') as input:
         prompts.append(input.read())
 
     sampling_params = SamplingParams(
