@@ -846,8 +846,8 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     bsz = q.shape[0]
 
     # * doecode phrase; sparse attention (might be more time-consuming, since N = 1 => O(3 * N ^ 2)) is useless, and standard attention kernel is already fast enough
-    if q_len == 1:
-        return dense(q, k, v)
+    # if q_len == 1:
+    #     return dense(q, k, v)
 
     return block_sparse_kernel(q, k, v)
 
