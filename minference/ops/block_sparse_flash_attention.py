@@ -49,7 +49,7 @@ def _build_block_index(
     # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
     # po_debug.debug_print(p_pool)
 
-    po_debug.debug_print(p_pool.shape)
+    po_debug.debug_print(p_pool)
 
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, context_size // block_size_N)
