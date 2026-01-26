@@ -49,7 +49,7 @@ def _build_block_index(
     # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
     # po_debug.debug_print(p_pool)
 
-    po_debug.debug_print(p_pool)
+    # po_debug.debug_print(p_pool)
 
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, context_size // block_size_N)
@@ -371,6 +371,8 @@ def _triton_block_sparse_attention(
         dtype=dtype,
         num_warps=4, num_stages=2,
     )
+
+    # po_debug.debug_print(o)
 
     return o
 
@@ -744,7 +746,7 @@ def block_sparse_attention(
         sm_scale,
         block_size_M, block_size_N)
     
-    # po_debug.debug_print(out[0, 0, :context_size, :])
+    po_debug.debug_print(out[0, 0, :context_size, :])
     
     return out[..., :context_size, :]
 
@@ -842,8 +844,8 @@ def _build_block_index_with_kvcache(
 
     # * key \in (#batch, k_seqlen_pad, #head, head_dim)
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen, k_seqlen_pad)
-    po_debug.debug_print(key.shape)
-    po_debug.debug_print(query.shape)
+    # po_debug.debug_print(key.shape)
+    # po_debug.debug_print(query.shape)
 
     # * align_up := https://www.notion.so/anton-po/module-2e03e281dfc18049abd0d79a65358040?source=copy_link
     # * query.reshape := (b, n, align_up(seqlen, block_size_M), headdim) -> (b, n, ceil_div(seqlen, block_size_M), block_size_M, headdim))
@@ -852,8 +854,8 @@ def _build_block_index_with_kvcache(
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
-    po_debug.debug_print(query_pool)
-    po_debug.debug_print(key_pool)
+    # po_debug.debug_print(query_pool)
+    # po_debug.debug_print(key_pool)
 
     abs_query_pos = k_seqlen - q_seqlen
 
@@ -978,6 +980,6 @@ def block_sparse_attention_with_kvcache(
         sm_scale,
         block_size_M, block_size_N)
 
-    # po_debug.debug_print(out[0, 0, :context_size, :])
+    po_debug.debug_print(out[0, 0, :context_size, :])
 
     return out[..., :context_size, :]
