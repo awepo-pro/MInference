@@ -852,8 +852,8 @@ def _build_block_index_with_kvcache(
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
-    # po_debug.debug_print(query_pool)
-    # po_debug.debug_print(key_pool)
+    po_debug.debug_print(query_pool)
+    po_debug.debug_print(key_pool)
 
     abs_query_pos = k_seqlen - q_seqlen
 
@@ -876,7 +876,7 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :])
     # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
 
-    po_debug.debug_print(p_pool)
+    # po_debug.debug_print(p_pool)
 
     # * top_k cannot exceed p_pool[-1] dimension, 
     # * assert ceil_div(k_seqlen, block_size_N) == k_seqlen_pad // block_size_N, since k_seqlen_pad := ceil_div(k_seqlen, block_size_N) * block_size_N
