@@ -31,6 +31,9 @@ def _build_block_index(
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
+    po_debug.debug_print(query_pool)
+    po_debug.debug_print(key_pool)
+
     # * arange(end=query_pool.shape[-2]) := arange(seqlen // block_size_M) -> [0, 1, 2, ..., seqlen // block_size_M)
     # * arange * block_size_M := starting position of each query block
     arange_M = torch.arange(query_pool.shape[-2], dtype=torch.int32, device=query.device) * block_size_M
@@ -39,12 +42,12 @@ def _build_block_index(
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
 
-    po_debug.debug_print(p_pool)
     
     # po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
     # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
+    # po_debug.debug_print(p_pool)
 
     # po_debug.debug_print(p_pool.shape)
 
@@ -849,6 +852,9 @@ def _build_block_index_with_kvcache(
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
+    po_debug.debug_print(query_pool)
+    po_debug.debug_print(key_pool)
+
     abs_query_pos = k_seqlen - q_seqlen
 
     # * query_pool  \in (b, n, ceil_div(q_seqlen, block_size_M), headdim)
@@ -870,7 +876,7 @@ def _build_block_index_with_kvcache(
     # po_debug.debug_print(arange_M[None, None, :, None] + abs_query_pos >= arange_N[None, None, None, :])
     # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
 
-    po_debug.debug_print(p_pool)
+    # po_debug.debug_print(p_pool)
 
     # * top_k cannot exceed p_pool[-1] dimension, 
     # * assert ceil_div(k_seqlen, block_size_N) == k_seqlen_pad // block_size_N, since k_seqlen_pad := ceil_div(k_seqlen, block_size_N) * block_size_N
