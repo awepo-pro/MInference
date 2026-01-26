@@ -888,12 +888,12 @@ def block_sparse_topk_vllm_with_kvcache(
             top_k,
             seq_lens)
 
-    def dense(q, k, v):
-        return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
+    # def dense(q, k, v):
+    #     return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
 
     # * doecode phrase; sparse attention (might be more time-consuming, since N = 1 => O(3 * N ^ 2)) is useless, and standard attention kernel is already fast enough
-    if q_len == 1:
-        return dense(q, k, v)
+    # if q_len == 1:
+    #     return dense(q, k, v)
 
     return block_sparse_kernel_with_kvcache(
         q,                  # * (batch=1, #head=1, total_tokens, headdim) 
