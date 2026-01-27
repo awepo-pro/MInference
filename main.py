@@ -4,12 +4,14 @@
 from vllm import LLM, SamplingParams
 
 from minference import MInference  # including MInference
-
+import torch
 import os
 
 def main() -> None:
     assert os.environ.get('VLLM_USE_V1') == '0', f'using v1, VLLM_USE_V1: {os.environ.get("VLLM_USE_V1")}'
     assert os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING') == '0', f'using multiprocessing, VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING")}'
+
+    torch.set_printoptions(threshold=500)
 
     prompts = [
         # "Hello my name is",    # * 4 words
