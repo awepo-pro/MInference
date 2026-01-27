@@ -1,0 +1,39 @@
+s you’ve surely noticed, Machine Learning is a rapidly expanding field with the potential to transform the way we live and work. It is the science of creating algorithms that can recognize patterns in data and predict or make decisions without being explicitly programmed to do so. However, if you’re new to the field, the concept of machine learning can be intimidating and difficult to grasp. The good news is that with a basic understanding of the concepts and math behind machine learning, you can get started and lay a solid foundation for a career in data science or machine learning engineering. In this article, we’ll look at how understanding machine learning algorithms and the underlying math concepts can help you build a solid foundation in the field. This article is for you if you’re just starting out or looking to advance your skills.
+
+repare to embark on an adventure with this article! We’ll go over the fundamentals of machine learning and give you the knowledge you need to understand the various algorithms. By the end of this article, you should have a better understanding of the various approaches used in machine learning and be able to identify which algorithms interest you. This article will provide you with a solid foundation to build on if you are interested in classification, regression, clustering, association, or dimension reduction. Of course, a solid understanding of mathematics is required to fully comprehend the concepts, so make sure you have the prerequisites before diving in!
+
+In this article, we’ll shed light into the following:
+
+ML? WTH is even that?
+Its types and use cases
+Classic algorithms’ concepts, pros and cons
+A quick Python application
+A Nota Bene: why learn the Math behind?
+The necessary Math to learn and why?
+Where to head next? Any Applications?
+
+What’s Machine Learning?
+Machine learning is a branch of artificial intelligence that deals with the design and development of algorithms that can learn from data and predict or act without being explicitly programmed to do so. A large amount of data is fed into the algorithm during the learning process, allowing it to identify patterns and relationships in the data and then make predictions or decisions based on that information. As they are exposed to more data, the algorithms can continue to learn and improve.
+
+Types and use cases
+There are various types of machine learning, such as:
+
+Supervised learning is a type of machine learning in which the algorithm is trained on labeled data with the goal of predicting the output label for new, unseen data.
+Unsupervised learning: The algorithm is not given any labeled data in this type of machine learning, and the goal is to find patterns or relationships in the data.
+Semi-supervised learning is a hybrid of supervised and unsupervised learning in which the algorithm is trained on both labeled and unlabeled data.
+Reinforcement learning: In this type of machine learning, the algorithm learns to make a series of decisions in a setting where it is rewarded or punished for its actions.
+Transfer learning is a type of machine learning in which the knowledge gained from solving one problem is transferred and applied to a related but distinct problem.
+Deep learning, also known as artificial neural networks, is a subfield of machine learning that is inspired by the structure and function of the human brain. It is used for a wide range of tasks including image and speech recognition, NLP (Natural Language Processing) etc.
+
+
+upervised learning is a type of machine learning where the algorithms are trained on labeled data, with the goal of making predictions or categorizing new data points based on past observations. Two common examples of supervised learning are classification and regression. Classification is used to predict a categorical label, such as “spam” or “not spam” for an email, while regression is used to predict continuous numerical values, such as the price of a house. These techniques have numerous applications in fields such as finance, healthcare, and marketing.
+
+On the other hand, unsupervised learning focuses on finding patterns or relationships in data without labeled responses. This type of learning is useful when the desired output is not clear, and the goal is to explore the structure of the data and gain insight into it.
+
+Clustering, association, and dimension reduction are some common examples of unsupervised learning techniques. Clustering involves grouping data points into clusters based on similarity, while association is used to identify relationships between variables. Dimension reduction is used to simplify the data by reducing the number of features while retaining as much information as possible. These techniques are often used in areas such as image recognition, anomaly detection, and market segmentation.
+
+
+Classical ML Algorithms
+Note that each of these algorithms has its own parameters that, if varied, can optimize its results. Furthermore, these variations can also affect its advantages and disadvantages.
+
+Linear Regression is a statistical technique used to investigate the linear relationship between two variables, one of which is dependent (or output) and the other independent (or input). Linear regression’s goal is to find the best line that fits the data points and predict the output variable based on the input variable. The best fit line is determined by determining the parameter values that minimize the differences between the observed and predicted values.
