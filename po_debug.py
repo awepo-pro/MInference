@@ -1,5 +1,9 @@
 import inspect
 import os
+import torch
+
+
+torch.set_printoptions(threshold=500)
 
 def debug_print(var, comment="", out=print):
     # if out == print:
