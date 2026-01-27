@@ -839,8 +839,8 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     # po_debug.debug_print(q)
 
 
-    def block_sparse_kernel(q, k, v, top_k=3):
-        return block_sparse_attention(q, k, v, top_k).to(torch.float32)
+    def block_sparse_kernel(q, k, v, top_k=6):
+        return block_sparse_attention(q, k, v, top_k)
 
     def dense(q, k, v, vertical_size=None, slash_size=None):
         return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
@@ -885,13 +885,13 @@ def block_sparse_topk_vllm_with_kvcache(
             # cu_seqlens_k, max_seqlen_k,
             block_tables,
             seq_lens: torch.Tensor, 
-            top_k=3) -> torch.Tensor:
+            top_k=6) -> torch.Tensor:
         return block_sparse_attention_with_kvcache(
             q, k, v,
             k_cache, v_cache,
             block_tables,
             top_k,
-            seq_lens).to(torch.float32)
+            seq_lens)
 
     # def dense(q, k, v):
     #     return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
