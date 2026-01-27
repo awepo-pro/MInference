@@ -90,7 +90,7 @@ def main() -> None:
         model=model_name,
         max_num_seqs=1,
         enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
-        dtype='float32',
+        dtype='float16',
         max_model_len=12800,
         block_size=256,
         # block_size=16,
