@@ -3,9 +3,9 @@ import os
 import torch
 
 
+torch.set_printoptions(threshold=10_000, edgeitems=20, linewidth=200, )
 
 def debug_print(var, comment="", out=print):
-    torch.set_printoptions(threshold=1000)
     # if out == print:
     #     return None
         
