@@ -836,6 +836,9 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
+    po_debug.debug_print(q)
+
+
     def block_sparse_kernel(q, k, v, top_k=3):
         return block_sparse_attention(q, k, v, top_k)
 
@@ -872,6 +875,8 @@ def block_sparse_topk_vllm_with_kvcache(
     q_len = q.shape[2]
     bsz = q.shape[0]        # * bsz should be 1
     assert bsz == 1, f'bsz: {bsz} is not 1'
+
+    po_debug.debug_print(q)
 
     def block_sparse_kernel_with_kvcache(
             q, k, v, 
