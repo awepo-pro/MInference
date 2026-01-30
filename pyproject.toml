@@ -32,3 +32,11 @@ packages = {find = {}}
 
 [tool.uv]
 no-build-isolation-package = ["minference"]
+
+[tool.uv.sources]
+minference = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "minference",
+]
