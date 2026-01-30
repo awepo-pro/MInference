@@ -1388,8 +1388,6 @@ def minference_vllm_forward(
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
 
-                print('=' * 30 + 'kv cache: ' + f'{head=}' + '=' * 30)
-                
 
                 # (1, seq_len, num_heads, head_size)
                 # * (batch=1, seqlen, 1, headdim)
