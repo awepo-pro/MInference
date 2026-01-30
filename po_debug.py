@@ -6,8 +6,8 @@ import torch
 torch.set_printoptions(threshold=10_000, edgeitems=20, linewidth=200, )
 
 def debug_print(var, comment="", out=print):
-    # if out == print:
-    #     return None
+    if out == print:
+        return None
         
     if out == print:
         out(comment, end='')
