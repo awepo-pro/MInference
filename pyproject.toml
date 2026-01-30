@@ -1,10 +1,8 @@
 [build-system]
-# We added torch, packaging, and ninja here because your build 
-# script (setup.py) needs to import them to run.
 requires = [
     "setuptools>=61.0", 
     "wheel", 
-    "torch>=2.0.0", 
+    "torch==2.7.0", 
     "packaging", 
     "ninja"
 ]
@@ -13,21 +11,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "MInference"
 version = "0.1.0"
-description = "Project with torch and system utilities"
+description = "Experimental Minference that added paged attention in block sparse attention"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    {name = "Your Name", email = "you@example.com"}
+    {name = "Anton", email = "pohiulam123@gmail.com"}
 ]
 
-# These remain here so they are also available when running your code
 dependencies = [
-    "torch>=2.0.0",
+    "numpy",
+    "torch==2.7.0",
     "packaging",
     "psutil",
     "ninja",
-    "vllm>=0.13.0",
+    "vllm==0.9.0",
 ]
 
 [tool.setuptools]
 packages = {find = {}}
+
+[tool.uv]
+no-build-isolation-package = ["minference"]
