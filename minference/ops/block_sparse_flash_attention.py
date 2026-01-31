@@ -34,7 +34,6 @@ def _build_block_index(
 
     # * (b, n, q_seqlen // block_size_M, k_seqlen // block_size_N)
     p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
-
     
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
@@ -317,8 +316,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
         start_n = real_block_idx * BLOCK_N
 
-        bt_index = start_n // BLOCK_SIZE     # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
-        bt_block_index = start_n % BLOCK_SIZE    # * bt_block_index := exact block inside that block table
+        bt_index = start_n // BLOCK_SIZE            # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
+        bt_block_index = start_n % BLOCK_SIZE       # * bt_block_index := exact block inside that block table
 
         physical_idx = block_tables \
                         + 0 * stride_bt_a \

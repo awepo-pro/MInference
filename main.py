@@ -6,6 +6,7 @@ from vllm import LLM, SamplingParams
 from minference import MInference  # including MInference
 import os
 
+# * project documentation: https://www.notion.so/anton-po/Minference-2d73e281dfc180719aaee3c6b72961ed
 def main() -> None:
     assert os.environ.get('VLLM_USE_V1') == '0', f'using v1, VLLM_USE_V1: {os.environ.get("VLLM_USE_V1")}'
     assert os.environ.get('VLLM_ENABLE_V1_MULTIPROCESSING') == '0', f'using multiprocessing, VLLM_ENABLE_V1_MULTIPROCESSING: {os.environ.get("VLLM_ENABLE_V1_MULTIPROCESSING")}'

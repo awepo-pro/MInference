@@ -836,14 +836,11 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
-    # po_debug.debug_print(q)
-
-
     def block_sparse_kernel(q, k, v, top_k=6):
         return block_sparse_attention(q, k, v, top_k)
 
-    def dense(q, k, v, vertical_size=None, slash_size=None):
-        return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
+    # def dense(q, k, v, vertical_size=None, slash_size=None):
+    #     return flash_attn_func(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1,2), 0.0, softmax_scale=None, causal=q_len != 1).view(bsz, 1, q_len, head_dim)
 
     q_len = q.shape[2]
     bsz = q.shape[0]
@@ -862,10 +859,6 @@ def block_sparse_topk_vllm_with_kvcache(
         v,
         k_cache,            # * (#block, block_size, #head=1, headdim)
         v_cache,
-        # cu_seqlens_q,       # * (#batch + 1)
-        # max_seqlen_q,
-        # cu_seqlens_k, 
-        # max_seqlen_k,
         block_tables,        # * (#batch, max_num_block_per_seq)
         seq_lens,            # * (#batch)
     ) -> torch.Tensor:
@@ -984,8 +977,6 @@ def minference_vllm_forward(
                 q_head = q[:, head, :].unsqueeze(1)
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
-
-                print('=' * 30 + f'{head=}' + '=' * 30)
 
                 # (1, seq_len, num_heads, head_size)
                 # * expand the dimension (1, seqlen, 1, head_size)
