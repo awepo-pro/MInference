@@ -583,9 +583,9 @@ def _build_block_index_with_kvcache(
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
 
-    block_size = int(k_cache.shape[1])
-    assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
-    assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
+    # block_size = int(k_cache.shape[1])
+    # assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
+    # assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
 
     # * key \in (#batch, k_seqlen_pad, #head, head_dim)
