@@ -1327,20 +1327,14 @@ def minference_vllm_forward(
                 k_head = k[:, head, :].unsqueeze(1)
                 v_head = v[:, head, :].unsqueeze(1)
 
-                # po_debug.debug_print(q_head.stride())
-                # po_debug.debug_print(q.stride())
-
                 # (1, seq_len, num_heads, head_size)
                 q_head = q_head[None, ...]
                 k_head = k_head[None, ...]
                 v_head = v_head[None, ...]
 
-
                 q_head = q_head.transpose(1, 2)
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
-                # po_debug.debug_print(q_head.stride())
-                # po_debug.debug_print(q.stride())
 
                 out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
 
@@ -1385,7 +1379,6 @@ def minference_vllm_forward(
                 v_head = v[:, head, :].unsqueeze(1)
 
 
-                # (1, seq_len, num_heads, head_size)
                 # * (batch=1, seqlen, 1, headdim)
                 q_head = q_head[None, ...]
                 k_head = k_head[None, ...]
@@ -1409,16 +1402,10 @@ def minference_vllm_forward(
                     q_head, 
                     k_head,
                     v_head,
-                    k_head_cache,       # * (#block, block_size, #head=1, headdim)
+                    k_head_cache,               # * (#block, block_size, #head=1, headdim)
                     v_head_cache,
-                    # cu_seqlens_q,
-                    # max_seqlen_q,
-                    # cu_seqlens_k, 
-                    # max_seqlen_k,
                     block_tables,
                     attn_metadata.seq_lens)     # * out / in [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
-
-                # po_debug.debug_print(out.shape)
 
                 # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
@@ -1536,16 +1523,16 @@ def minference_vllm_forward(
 
             assert num_prefill_query_tokens == 0, 'decode should only has 1 query'
             
-            # output = flash_attn_with_kvcache(
-            #     decode_query.unsqueeze(1),           # * (1, 1, 14, 64)
-            #     key_cache,                               # * (#block, 256, #kv_head=2, headdim)
-            #     value_cache,
-            #     block_table=decode_meta.block_tables,
-            #     cache_seqlens=decode_meta.seq_lens_tensor,
-            #     softmax_scale=self.scale,
-            #     causal=True,
-            #     alibi_slopes=self.alibi_slopes,
-            # ).squeeze(1)
+            output = flash_attn_with_kvcache(
+                decode_query.unsqueeze(1),                # * (1, 1, 14, 64)
+                key_cache,                                # * (#block, 256, #kv_head=2, headdim)
+                value_cache,
+                block_table=decode_meta.block_tables,
+                cache_seqlens=decode_meta.seq_lens_tensor,
+                softmax_scale=self.scale,
+                causal=True,
+                alibi_slopes=self.alibi_slopes,
+            ).squeeze(1)
 
             # po_debug.debug_print(output.shape) # * (1, 14, 64)
 

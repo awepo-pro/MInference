@@ -2,12 +2,13 @@ import inspect
 import os
 import torch
 
+PO_DEBUG = False
 
 torch.set_printoptions(threshold=10_000, edgeitems=20, linewidth=200, )
 
 def debug_print(var, comment="", out=print):
-    # if out == print:
-    #     return None
+    if PO_DEBUG is False:
+        return 
         
     if out == print:
         out(comment, end='')

@@ -6,10 +6,6 @@ import torch
 import triton
 import triton.language as tl
 
-# from flash_attn import flash_attn_varlen_func
-# import pycuda.autoprimaryctx
-# from pycuda.compiler import SourceModule
-
 import po_debug
 
 
@@ -170,12 +166,6 @@ def _triton_block_sparse_attn_fwd_kernel(
         l_i = l_i * alpha + tl.sum(p, 1)
         m_i = m_i_new
 
-        # * (BLOCK_M, 1) \plus (1, BLOCK_DMODEL)
-        # offset_acc = tl.arange(0, BLOCK_M)[:, None] + (tl.arange(0, BLOCK_DMODEL) * BLOCK_M)[None, :]
-        # tl.device_print('acc: ', acc + offset_acc)
-        # tl.device_print('li: ', l_i + tl.arange(0, BLOCK_M))
-        # tl.device_print('mi: ', m_i + tl.arange(0, BLOCK_M))
-
     # write back O
     acc /= l_i[:, None]
     tl.store(o_ptrs, acc.to(dtype), mask=m_mask)
@@ -226,8 +216,6 @@ def _triton_block_sparse_attention(
         num_warps=4, num_stages=2,
     )
 
-    # po_debug.debug_print(o)
-
     return o
 
 @triton.jit
@@ -266,14 +254,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
     assert off_hz == 0, 'off_hz != 1'
 
-    # off_a = tl.arange(0, BLOCK_DMODEL)[:, None] * stride_v_headdim
-    # off_b = tl.arange(0, BLOCK_N)[None, :] * stride_vblock_size
-    # k_tmp = tl.load(v_cache + off_a + off_b)
-    # tl.device_print('off_a: ', off_a)
-    # tl.device_print('off_b: ', off_b)
-    # tl.device_print('idx: ', off_a + off_b)
-    # tl.device_print('v-tmp: ', k_tmp)
-
     # * do nothing if padding
     if start_m * BLOCK_M >= q_seqlen:
         return
@@ -306,8 +286,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     o_ptrs = Out    + qo_offset + offs_m[:, None] * stride_om + offs_d[None, :] * stride_ok
     q_ptrs = Q      + qo_offset + offs_m[:, None] * stride_qm + offs_d[None, :] * stride_qk
 
-    # tl.device_print('q_ptrs: ', qo_offset + offs_m[:, None])                        # * [0, block_M)
-
     # * starting_point + #head + headdim offset 
     # * k_base_ptrs \in (BLOCK_DMODEL, 1); 
     k_base_ptrs = k_cache + head_id * stride_num_khead + offs_d[:, None] * stride_k_headdim
@@ -332,14 +310,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     q = tl.load(q_ptrs)
     q = (q * qk_scale).to(dtype)
 
-    # loop over k, v and update accumulator
     m_mask = offs_m[:, None] < q_seqlen
-    # tl.device_print('m_mask: ', m_mask)
-    # tl.device_print('offs_m: ', offs_m[:, None])
-    # tl.device_print('q_seqlen: ', q_seqlen)
-    # block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
     block_count = MAX_BLOCKS_PRE_ROW
-    # tl.device_print('block count: ', block_count)
 
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
@@ -353,33 +325,16 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + bt_index * stride_bt_b
 
         physical_index = tl.load(physical_idx)
-        tl.device_print('block table index: ', physical_index)
-        # tl.device_print('real_block_idx: ', real_block_idx)
-        # tl.device_print('physical_index: ', physical_index)
 
         cols = start_n + offs_n
 
         # * #block, block_size
         # * k_base_ptrs \in (BLOCK_DMODEL, 1) \plus (1, BLOCK_N) -> (BLOCK_DEMOEL, BLOCK_N)
-        # k_ptrs = k_base_ptrs \
-        #         + physical_index * stride_kblock \
-        #         + (bt_block_index + offs_n)[None, :] * stride_kblock_size
-
         k_ptrs = k_base_ptrs \
                 + ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock).to(tl.int32) \
                 + offs_n[None, :] * stride_kblock_size
         
-        # tl.device_print('fp16: ', ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock))
-        # tl.device_print('new: ', ((physical_index + bt_block_index / BLOCK_SIZE) * stride_kblock).to(tl.int32))
-
-        
-        # tl.device_print('physical_index * stride_kblock: ', physical_index * stride_kblock) # * = 0
-        # tl.device_print('bt_block_index: ', bt_block_index)   # * = 0
-        # tl.device_print('bt_block_index + offs_n: ', bt_block_index + offs_n) # * 0, 1, 2, ..., 31
-        # tl.device_print('(bt_block_index + offs_n)[None, :] * stride_kblock_size: ', (bt_block_index + offs_n)[None, :] * stride_kblock_size) # * 0, 64, 128, ..., 1920, 1984
-        
         # * v_base_ptrs \in (1, BLOCK_DMODEL) \plus (BLOCK_N, 1) -> (BLOCK_N, BLOCK_DMODEL)
-        # * 
         v_ptrs = v_base_ptrs \
                 + ((physical_index + bt_block_index / BLOCK_SIZE) * stride_vblock).to(tl.int32) \
                 + offs_n[:, None] * stride_vblock_size
@@ -553,8 +508,6 @@ def get_full_key_from_cache(k_cache, block_tables, seqlen, seqlen_pad):
     # k_cache[block_indices] \in (#batch, num_blocks_needed, block_size, #kv_head, headdim)
     gathered_blocks = k_cache[block_indices]
     
-    # Reshape to merge blocks into sequence dimension
-
     # * num_blocks_needed * block_size := ceil_div(seqlen, block_size)
     # * it is now padded with paged attention block_size, which is diff from block_size_N and block_size_M. 
     # * we have to map it back to block_size_N or block_size_M
@@ -583,11 +536,6 @@ def _build_block_index_with_kvcache(
     block_size_N: int = 64,
 ):
     batch_size, num_heads, context_size, head_dim = query.shape
-
-    # block_size = int(k_cache.shape[1])
-    # assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
-    # assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
-
 
     # * key \in (#batch, k_seqlen_pad, #head, head_dim)
     key = get_full_key_from_cache(k_cache, block_tables, k_seqlen, k_seqlen_pad)
@@ -648,7 +596,11 @@ def block_sparse_attention_with_kvcache(
     assert batch_size == 1, f'{batch_size=} != 1'
     assert num_heads == 1, f'{num_heads=} != 1'
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
-    
+
+    block_size = int(k_cache.shape[1])
+    assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
+    assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
+
     # * seqlen before padded
     q_seqlen = query.shape[-2]
     k_seqlen = k_seqlen_tensor[0]
