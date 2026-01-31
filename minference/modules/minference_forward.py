@@ -1351,14 +1351,10 @@ def minference_vllm_forward(
             
         def minference_prefill_kvcache_func(
                 q: torch.Tensor,                # * (seqlen, #head, headdim), ragged batching
-                k: torch.Tensor,              # * kv are cached in advanced, however, if len(k) == 1, we could do decode in this case
+                k: torch.Tensor,                # * kv are cached in advanced, however, if len(k) == 1, we could do decode in this case
                 v: torch.Tensor,
                 k_cache: torch.Tensor,          # * (#block, max_num_block_per_seq=block_size, #head, headdim), block_size := 16 by default
                 v_cache: torch.Tensor,  
-                # cu_seqlens_q: torch.Tensor,
-                # max_seqlen_q: torch.Tensor,
-                # cu_seqlens_k: torch.Tensor,
-                # max_seqlen_k: torch.Tensor,
                 causal: bool,                   # * must be causal attention
                 block_tables: torch.Tensor,     # * (#batch, max_num_block_per_seq)
         ) -> torch.Tensor:
@@ -1401,23 +1397,13 @@ def minference_vllm_forward(
                 v_head = v_head.transpose(1, 2)
 
                 # * 1 head of kv cache, (#block, block_size, #head=1, headdim)
-                # po_debug.debug_print(k_cache.shape)
-
                 k_cache_head = head // k_n_rep
                 v_cache_head = head // v_n_rep
                 assert k_cache_head < k_cache.size(2), f'{k_cache_head=} >= {k_cache.size(2)=}'
                 assert v_cache_head < v_cache.size(2), f'{v_cache_head=} >= {v_cache.size(2)=}'
 
-                # po_debug.debug_print(cache_head)
                 k_head_cache = k_cache[:, :, k_cache_head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, v_cache_head, :].unsqueeze(2)
-
-                # po_debug.debug_print(k_cache.shape)
-                # po_debug.debug_print(k_cache.stride())
-                # po_debug.debug_print(k_head_cache.shape)
-                # po_debug.debug_print(k_head_cache.stride())
-
-                # po_debug.debug_print(k_cache[0][:10])
 
                 out = self.block_sparse_topk_vllm_with_kvcache(
                     q_head, 
@@ -1441,9 +1427,6 @@ def minference_vllm_forward(
                 # * cannot use output[:, head, :] since it immediately squeeze out the middle dimension
                 output[:, head:head+1, :] = out
 
-                # break
-                
-                # exit()
             return output
             
 
@@ -1513,29 +1496,10 @@ def minference_vllm_forward(
         # po_debug.debug_print(attn_metadata)
 
         if prefill_meta := attn_metadata.prefill_metadata:
+            po_debug.debug_print(prefill_meta)
             # Prompt run.
             # * kv_cache.numel() != 0, prefill_meta.block_tables is not None
             if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
-                # normal attention
-                # When block_tables are not filled, it means q and k are the
-                # prompt, and they have the same length.
-                # out = flash_attn_varlen_func(
-                #     q=query,
-                #     k=key,
-                #     v=value,
-                #     cu_seqlens_q=prefill_meta.seq_start_loc,
-                #     cu_seqlens_k=prefill_meta.seq_start_loc,
-                #     max_seqlen_q=prefill_meta.max_prefill_seq_len,
-                #     max_seqlen_k=prefill_meta.max_prefill_seq_len,
-                #     softmax_scale=self.scale,
-                #     causal=True,
-                #     window_size=self.sliding_window,
-                #     alibi_slopes=self.alibi_slopes,
-                # )
-
-                # with open('output3.txt', 'a') as out:
-                #     po_debug.debug_print(prefill_meta, out=out)
-
                 # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
                 # po_debug.debug_print(value.shape)
@@ -1546,19 +1510,12 @@ def minference_vllm_forward(
                 out = minference_prefill_func(query, key, value)
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
-                # print('=' * 30 + 'pass prefill' + '=' * 30)
-                
                 output[:num_prefill_query_tokens] = out
             else:
-                # prefix-enabled attention
-                # assert False
+                # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
                     
-                # with open('output4.txt', 'a') as out:
                 po_debug.debug_print(prefill_meta)
-                # max_seq_len = max(prefill_meta.seq_lens)
-
-                # print(f'=' * 30, 'prefix enabled')
 
                 output[:num_prefill_query_tokens] = minference_prefill_kvcache_func(
                     query,
@@ -1566,10 +1523,6 @@ def minference_vllm_forward(
                     value,
                     key_cache,
                     value_cache,
-                    # cu_seqlens_q=prefill_meta.query_start_loc,
-                    # max_seqlen_q=prefill_meta.max_query_len,
-                    # cu_seqlens_k=prefill_meta.seq_start_loc,
-                    # max_seqlen_k=max_seq_len,
                     causal=True,
                     block_tables=prefill_meta.block_tables
                 )
@@ -1578,17 +1531,8 @@ def minference_vllm_forward(
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
-            
             # Decoding run.
-
-            # po_debug.debug_print(decode_meta.block_tables.numel()) # * must exist blocks in block tables
-
-            # po_debug.debug_print(decode_query.shape) # * (seqlen=1, #head=14, headdim=64)
-            # po_debug.debug_print(decode_meta)        
-
             key_cache, value_cache = kv_cache[0], kv_cache[1]
-            # po_debug.debug_print(key_cache.shape)        # * (#block, max_num_block_per_seq=16, #head=2, headdim=64)
-            # po_debug.debug_print(value_cache.shape)
 
             assert num_prefill_query_tokens == 0, 'decode should only has 1 query'
             
@@ -1603,16 +1547,7 @@ def minference_vllm_forward(
                 alibi_slopes=self.alibi_slopes,
             ).squeeze(1)
 
-            # po_debug.debug_print(output.shape)     # * same as query.shape (note that initially query, not the one used in prefill)
             # po_debug.debug_print(output.shape) # * (1, 14, 64)
-
-            # print('=' * 30 + 'pass decode' + '=' * 30)
-
-
-        # po_debug.debug_print(output.shape) # * (4, 14, 64) for prefill; (0, 14, 64) for decode
-        # po_debug.debug_print(output.view(num_tokens, hidden_size).shape) # * (4, 896) for prefill
-
-
 
         # Reshape the output tensor.
         return output.view(num_tokens, hidden_size)

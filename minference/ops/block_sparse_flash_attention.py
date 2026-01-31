@@ -24,16 +24,12 @@ def _build_block_index(
     batch_size, num_heads, context_size, head_dim = query.shape
     po_debug.debug_print(key.shape)
     po_debug.debug_print(query.shape)
-    # po_debug.debug_print(key)
 
     # * query.reshape := (b, n, seqlen, headdim) -> (b, n, seqlen // block_size_M, block_size_M, headdim)
     # * query.reshape.mean(dim=-2) := (b, n, seqlen // block_size_M, block_size_M, headdim) -> (b, n, seqlen // block_size_M, headdim)
     # * it means compress seqlen into blocks by averaging them 
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
-
-    # po_debug.debug_print(query_pool)
-    # po_debug.debug_print(key_pool)
 
     # * arange(end=query_pool.shape[-2]) := arange(seqlen // block_size_M) -> [0, 1, 2, ..., seqlen // block_size_M)
     # * arange * block_size_M := starting position of each query block
@@ -44,13 +40,8 @@ def _build_block_index(
     p_pool = torch.einsum('bhmk, bhnk -> bhmn', query_pool, key_pool)
 
     
-    # po_debug.debug_print(key_pool[0, 0, 0, :])
     # * build 4D, arrange_M \in (b=1, h=1, m, 1); arange_N \in (b=1, h=1, 1, n). build a mask in last 2 dimension. should be a upper-triangular matrix
     p_pool = p_pool.where(arange_M[None, None, :, None] >= arange_N[None, None, None, :], -torch.inf)
-    # po_debug.debug_print(arange_M[None, None, :, None] >= arange_N[None, None, None, :])
-    # po_debug.debug_print(p_pool)
-
-    # po_debug.debug_print(p_pool)
 
     # * top_k cannot exceed p_pool[-1] dimension
     top_k = min(top_k, context_size // block_size_N)
@@ -123,15 +114,6 @@ def _triton_block_sparse_attn_fwd_kernel(
     # * why uses stride to compute q_ptrs and shape to compute blocks_ptr?
     # *     - Q might not contiguous tensor, stride is generalized method 
     # *     - blocks_ptr is contiguous, might use size of stride to compute
-
-    # tl.device_print(H)
-    # tl.device_print(off_hz // H)
-    # tl.device_print(off_hz % H)
-    # tl.device_print(stride_qz)
-    # tl.device_print(stride_qh)
-    # tl.device_print(stride_qm)
-    # tl.device_print(stride_qk)
-    # tl.device_print(qo_offset)
     
 
     # * start_point + batch_head_offset + seqlen_offset + headdim_offset
