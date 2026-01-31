@@ -598,8 +598,8 @@ def _build_block_index_with_kvcache(
     query_pool = query.reshape((batch_size, num_heads, -1, block_size_M, head_dim)).mean(dim=-2)
     key_pool = key.reshape((batch_size, num_heads, -1, block_size_N, head_dim)).mean(dim=-2)
 
-    po_debug.debug_print(query_pool)
-    po_debug.debug_print(key_pool)
+    # po_debug.debug_print(query_pool)
+    # po_debug.debug_print(key_pool)
 
     abs_query_pos = k_seqlen - q_seqlen
 

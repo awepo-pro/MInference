@@ -33,7 +33,7 @@ def main() -> None:
     ]
 
     with open('dataset/6.txt', 'r') as input:
-        prompts.append(input.read())
+        prompts.append(input.read().strip())
 
     sampling_params = SamplingParams(
         temperature=0,
@@ -51,8 +51,8 @@ def main() -> None:
         enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
         dtype='float16',
         max_model_len=12800,
-        block_size=256,
-        # block_size=16,
+        # block_size=256,
+        block_size=16,
         enable_chunked_prefill=True,
         # max_num_batched_tokens=64
         max_num_batched_tokens=256,
