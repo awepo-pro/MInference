@@ -14,16 +14,15 @@ def run_prefix_caching_demo():
 
     # --- Turn 1: The Initial Request ---
     with open('dataset/sonnets.txt', 'r') as input:
-        data = input.read()[:4000]
-        data1 = data[:3000]
-        data2 = data[3000:3500]
-    
-    user_query_1 = data1
+        data = input.read()[:10000]
+        data1 = data[:8000]
+        data2 = data[8000:10000]
     
     # Construct the full prompt for Turn 1
-    prompt_turn_1 = user_query_1
+    prompt_turn_1 = data1
+    print(f'{len(prompt_turn_1)=}')
     
-    print(f"\n--- Processing Turn 1 ---\nPrompt: {prompt_turn_1!r}")
+    # print(f"\n--- Processing Turn 1 ---\nPrompt: {prompt_turn_1!r}")
     
     start_time = time.time()
     outputs_1 = llm.generate([prompt_turn_1], sampling_params)
@@ -39,15 +38,16 @@ def run_prefix_caching_demo():
     # To use the cache, we MUST start with the exact tokens from the previous turn.
     # We construct prompt_2 by appending the previous output + new user input.
     prompt_turn_2 = f"{prompt_turn_1}{generated_text_1}\n{data2}"
+    print(f'{len(prompt_turn_2)=}')
     
-    print(f"\n--- Processing Turn 2 ---\nPrompt: {prompt_turn_2!r}")
+    # print(f"\n--- Processing Turn 2 ---\nPrompt: {prompt_turn_2!r}")
     
     start_time = time.time()
     outputs_2 = llm.generate([prompt_turn_2], sampling_params)
     end_time = time.time()
     
     generated_text_2 = outputs_2[0].outputs[0].text
-    print(f"Output 2: {generated_text_2}")
+    print(f"Output 2: {generated_text_2[:50]}")
     print(f"Turn 2 Time: {end_time - start_time:.4f}s (Cache Hit - Prefill skipped for prefix)")
 
 if __name__ == "__main__":
