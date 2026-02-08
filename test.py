@@ -13,11 +13,15 @@ def run_prefix_caching_demo():
     sampling_params = SamplingParams(temperature=0.7, max_tokens=50)
 
     # --- Turn 1: The Initial Request ---
-    system_prompt = "You are a concise AI assistant."
-    user_query_1 = "What are the three primary colors?"
+    with open('dataset/sonnets.txt', 'r') as input:
+        data = input.read()[:4000]
+        data1 = data[:3000]
+        data2 = data[:3500]
+    
+    user_query_1 = data1
     
     # Construct the full prompt for Turn 1
-    prompt_turn_1 = f"{system_prompt}\nUser: {user_query_1}\nAssistant:"
+    prompt_turn_1 = user_query_1
     
     print(f"\n--- Processing Turn 1 ---\nPrompt: {prompt_turn_1!r}")
     
@@ -26,16 +30,15 @@ def run_prefix_caching_demo():
     end_time = time.time()
     
     generated_text_1 = outputs_1[0].outputs[0].text
-    print(f"Output 1: {generated_text_1}")
+    print(f"Output 1: {generated_text_1[:50]}...")
     print(f"Turn 1 Time: {end_time - start_time:.4f}s (Cache Miss - Prefill required)")
 
     # --- Turn 2: Continuing the Session ---
-    user_query_2 = "Which one represents passion?"
     
     # CRITICAL STEP: 
     # To use the cache, we MUST start with the exact tokens from the previous turn.
     # We construct prompt_2 by appending the previous output + new user input.
-    prompt_turn_2 = f"{prompt_turn_1}{generated_text_1}\nUser: {user_query_2}\nAssistant:"
+    prompt_turn_2 = f"{prompt_turn_1}{generated_text_1}\n{data2}"
     
     print(f"\n--- Processing Turn 2 ---\nPrompt: {prompt_turn_2!r}")
     
