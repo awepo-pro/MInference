@@ -1491,6 +1491,7 @@ def minference_vllm_forward(
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention, invoke by prefill chunk
+                assert False
                 assert prefill_meta.seq_lens is not None
                     
                 po_debug.debug_print(prefill_meta)

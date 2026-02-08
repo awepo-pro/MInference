@@ -2,16 +2,13 @@ from vllm import LLM, SamplingParams
 import time
 
 def run_prefix_caching_demo():
-    # 1. Initialize vLLM with prefix caching enabled
-    # This is the crucial step: enable_prefix_caching=True
-
     model_name = "./models--Qwen--Qwen2-0.5B"
 
     llm = LLM(
         model=model_name, # Using a small model for demo purposes
         enable_prefix_caching=True,
         tensor_parallel_size=1,
-        enforce_eager=True
+        enforce_eager=True # disable CUDA graph
     )
 
     # Use greedy sampling (temperature=0) for stable benchmarks
@@ -30,12 +27,9 @@ def run_prefix_caching_demo():
         data1 = data[:8000]
         data2 = data[8000:10000]
     
-    # Construct the full prompt for Turn 1
     prompt_turn_1 = data1
     print(f'{len(prompt_turn_1)=}')
     
-    # print(f"\n--- Processing Turn 1 ---\nPrompt: {prompt_turn_1!r}")
-
     sampling_params = SamplingParams(temperature=0, max_tokens=1000)
     
     start_time = time.time()
@@ -53,8 +47,6 @@ def run_prefix_caching_demo():
     # We construct prompt_2 by appending the previous output + new user input.
     prompt_turn_2 = f"{prompt_turn_1}{generated_text_1}\n{data2}"
     print(f'{len(prompt_turn_2)=}')
-    
-    # print(f"\n--- Processing Turn 2 ---\nPrompt: {prompt_turn_2!r}")
     
     start_time = time.time()
     outputs_2 = llm.generate([prompt_turn_2], sampling_params)
