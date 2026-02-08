@@ -6,7 +6,7 @@ def run_prefix_caching_demo():
     # This is the crucial step: enable_prefix_caching=True
     llm = LLM(
         model="facebook/opt-125m", # Using a small model for demo purposes
-        enable_prefix_caching=True,
+        # enable_prefix_caching=True,
         tensor_parallel_size=1
     )
 
