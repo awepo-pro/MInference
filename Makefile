@@ -16,8 +16,12 @@ style:
 	black $(CHECK_DIRS) --extend-exclude ${EXELUDE_DIRS} --force-exclude ${FORCE_EXELUDE_DIRS}
 	isort -rc $(CHECK_DIRS)
 
+# test:
+# 	@${PYTHON} -m pytest -n 1 --dist=loadfile -s -v ./tests/
+
 test:
-	@${PYTHON} -m pytest -n 1 --dist=loadfile -s -v ./tests/
+	@VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} test.py 
+
 
 run:
 	@VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} main.py 

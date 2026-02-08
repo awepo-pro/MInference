@@ -1,15 +1,10 @@
 from vllm import LLM, SamplingParams
+from minference import MInference
 import time
 
-def run_prefix_caching_demo():
-    model_name = "./models--Qwen--Qwen2-0.5B"
-
-    llm = LLM(
-        model=model_name, # Using a small model for demo purposes
-        enable_prefix_caching=True,
-        tensor_parallel_size=1,
-        enforce_eager=True # disable CUDA graph
-    )
+def brenchmark(llm, prompts):
+    minference_patch = MInference("vllm_minference", model_name)
+    llm = minference_patch(llm)
 
     # Use greedy sampling (temperature=0) for stable benchmarks
     sampling_params = SamplingParams(temperature=0, max_tokens=10)
@@ -20,41 +15,70 @@ def run_prefix_caching_demo():
     llm.generate(["Warm up the engine"], sampling_params)
     print("Engine is warm.")
 
+    acc_prompt = ''
+    time_used = []
 
-    # --- Turn 1: The Initial Request ---
+    for i, prompt in enumerate(prompts):
+        print(f'request {i}, len: {len(prompt)}')
+        
+        sampling_params = SamplingParams(temperature=0, max_tokens=1)
+        
+        acc_prompt = acc_prompt + prompt
+        start_time = time.time()
+        output = llm.generate([acc_prompt], sampling_params)
+        end_time = time.time()
+        
+        # output[0] only one question, so must always index 0
+        generated_text = output[0].outputs[0].text
+        print(f"Output: {generated_text[:50]}...")
+        # print(f"Turn Time: {end_time - start_time:.4f}s (Cache Miss - Prefill required)")
+
+        acc_prompt = acc_prompt + '\n' +  generated_text
+        time_used.append(end_time - start_time)
+
+    return time_used
+
+if __name__ == "__main__":
+
     with open('dataset/sonnets.txt', 'r') as input:
         data = input.read()[:10000]
         data1 = data[:8000]
         data2 = data[8000:10000]
-    
-    prompt_turn_1 = data1
-    print(f'{len(prompt_turn_1)=}')
-    
-    sampling_params = SamplingParams(temperature=0, max_tokens=1000)
-    
-    start_time = time.time()
-    outputs_1 = llm.generate([prompt_turn_1], sampling_params)
-    end_time = time.time()
-    
-    generated_text_1 = outputs_1[0].outputs[0].text
-    print(f"Output 1: {generated_text_1[:50]}...")
-    print(f"Turn 1 Time: {end_time - start_time:.4f}s (Cache Miss - Prefill required)")
 
-    # --- Turn 2: Continuing the Session ---
-    
-    # CRITICAL STEP: 
-    # To use the cache, we MUST start with the exact tokens from the previous turn.
-    # We construct prompt_2 by appending the previous output + new user input.
-    prompt_turn_2 = f"{prompt_turn_1}{generated_text_1}\n{data2}"
-    print(f'{len(prompt_turn_2)=}')
-    
-    start_time = time.time()
-    outputs_2 = llm.generate([prompt_turn_2], sampling_params)
-    end_time = time.time()
-    
-    generated_text_2 = outputs_2[0].outputs[0].text
-    print(f"Output 2: {generated_text_2[:50]}")
-    print(f"Turn 2 Time: {end_time - start_time:.4f}s (Cache Hit - Prefill skipped for prefix)")
+    sampling_params = SamplingParams(
+        temperature=0,
+        top_p=1.0,
+        top_k=-1,
+        max_tokens=1,
+        seed=42
+    )
 
-if __name__ == "__main__":
-    run_prefix_caching_demo()
+    model_name = "./models--Qwen--Qwen2-0.5B"
+    
+    llm = LLM(
+        model=model_name,
+        max_num_seqs=1,
+        enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
+        dtype='float16',
+        max_model_len=12800,
+        block_size=256,
+        enable_prefix_caching=True,
+    )
+
+    with_prefix_t = brenchmark(llm, [data1, data2])
+
+    llm = LLM(
+        model=model_name,
+        max_num_seqs=1,
+        enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
+        dtype='float16',
+        max_model_len=12800,
+        block_size=256,
+        # enable_prefix_caching=True,
+    )
+
+    without_prefix_t = brenchmark(llm, [data1, data2])
+
+    print(f'standard minfernece: {without_prefix_t}')
+    print(f'with prefix enable minference: {with_prefix_t}')
+    
