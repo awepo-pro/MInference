@@ -4,13 +4,25 @@ import time
 def run_prefix_caching_demo():
     # 1. Initialize vLLM with prefix caching enabled
     # This is the crucial step: enable_prefix_caching=True
+
+    model_name = "./models--Qwen--Qwen2-0.5B"
+
     llm = LLM(
-        model="facebook/opt-125m", # Using a small model for demo purposes
-        # enable_prefix_caching=True,
-        tensor_parallel_size=1
+        model=model_name, # Using a small model for demo purposes
+        enable_prefix_caching=True,
+        tensor_parallel_size=1,
+        enforce_eager=True
     )
 
-    sampling_params = SamplingParams(temperature=0.7, max_tokens=50)
+    # Use greedy sampling (temperature=0) for stable benchmarks
+    sampling_params = SamplingParams(temperature=0, max_tokens=10)
+
+    # --- PHASE 0: WARM-UP (CRITICAL) ---
+    print("\n--- Warming up (Ignore this time) ---")
+    # This forces CUDA initialization, memory allocation, and graph capture.
+    llm.generate(["Warm up the engine"], sampling_params)
+    print("Engine is warm.")
+
 
     # --- Turn 1: The Initial Request ---
     with open('dataset/sonnets.txt', 'r') as input:
@@ -23,6 +35,8 @@ def run_prefix_caching_demo():
     print(f'{len(prompt_turn_1)=}')
     
     # print(f"\n--- Processing Turn 1 ---\nPrompt: {prompt_turn_1!r}")
+
+    sampling_params = SamplingParams(temperature=0, max_tokens=1000)
     
     start_time = time.time()
     outputs_1 = llm.generate([prompt_turn_1], sampling_params)
