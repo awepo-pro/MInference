@@ -16,7 +16,7 @@ def run_prefix_caching_demo():
     with open('dataset/sonnets.txt', 'r') as input:
         data = input.read()[:4000]
         data1 = data[:3000]
-        data2 = data[:3500]
+        data2 = data[3000:3500]
     
     user_query_1 = data1
     
