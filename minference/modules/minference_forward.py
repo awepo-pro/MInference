@@ -1312,7 +1312,7 @@ def minference_vllm_forward(
             output = torch.empty_like(q)
             head_idx_st = get_tensor_model_parallel_rank() * q.size(-2)
             for head in range(q.size(-2)):
-                print('=' * 30 + 'normal: ' + f'{head=}' + '=' * 30, flush=True)
+                # print('=' * 30 + 'normal: ' + f'{head=}' + '=' * 30, flush=True)
 
                 q_head = q[:, head, :].unsqueeze(1)
                 k_head = k[:, head, :].unsqueeze(1)
@@ -1491,7 +1491,6 @@ def minference_vllm_forward(
                 output[:num_prefill_query_tokens] = out
             else:
                 # prefix-enabled attention, invoke by prefill chunk
-                assert False
                 assert prefill_meta.seq_lens is not None
                     
                 po_debug.debug_print(prefill_meta)
