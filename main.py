@@ -51,6 +51,7 @@ def main() -> None:
 
     model_name = "./models--Qwen--Qwen2-0.5B"
     
+    # block_size must be divisible by 256, required from flash_attn_with_kvcache
     llm = LLM(
         model=model_name,
         max_num_seqs=1,
