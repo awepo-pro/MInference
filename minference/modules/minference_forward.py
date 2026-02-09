@@ -836,7 +836,7 @@ def block_sparse_topk_vllm(self, q, k, v, head_id):
     kv_seq_len = k.size(2)
     head_dim = q.size(-1)
 
-    def block_sparse_kernel(q, k, v, top_k=6):
+    def block_sparse_kernel(q, k, v, top_k=15):
         return block_sparse_attention(q, k, v, top_k)
 
     # def dense(q, k, v, vertical_size=None, slash_size=None):
@@ -878,7 +878,7 @@ def block_sparse_topk_vllm_with_kvcache(
             # cu_seqlens_k, max_seqlen_k,
             block_tables,
             seq_lens: torch.Tensor, 
-            top_k=6) -> torch.Tensor:
+            top_k=15) -> torch.Tensor:
         return block_sparse_attention_with_kvcache(
             q, k, v,
             k_cache, v_cache,
