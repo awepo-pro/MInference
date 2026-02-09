@@ -3,8 +3,9 @@ from minference import MInference
 import time
 
 def truncate_if(text, max_len=12800):
+    text = text[-max_len:]
     print(f'{len(text)=}')
-    return text[-max_len:]
+    return text
 
 def brenchmark(llm, prompts):
 
@@ -25,9 +26,9 @@ def brenchmark(llm, prompts):
         
         sampling_params = SamplingParams(temperature=0, max_tokens=1)
         
-        acc_prompt = acc_prompt + prompt
+        # acc_prompt = acc_prompt + prompt
         start_time = time.time()
-        output = llm.generate([truncate_if(acc_prompt)], sampling_params)
+        output = llm.generate([truncate_if(prompt)], sampling_params)
         end_time = time.time()
         
         # output[0] only one question, so must always index 0
@@ -35,7 +36,7 @@ def brenchmark(llm, prompts):
         print(f"Output: {generated_text[:50]}...")
         # print(f"Turn Time: {end_time - start_time:.4f}s (Cache Miss - Prefill required)")
 
-        acc_prompt = acc_prompt + generated_text
+        # acc_prompt = acc_prompt + generated_text
         time_used.append(end_time - start_time)
 
     return time_used
@@ -43,7 +44,7 @@ def brenchmark(llm, prompts):
 if __name__ == "__main__":
 
     with open('dataset/sonnets.txt', 'r') as input:
-        total = 40000
+        total = 4000
         x = int(total * 0.6)
 
         data = input.read()[:total]
@@ -73,7 +74,7 @@ if __name__ == "__main__":
         # enable_prefix_caching=True,
     )
 
-    #
+
     # llm3 = LLM(
     #     model=model_name,
     #     max_num_seqs=1,

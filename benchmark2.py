@@ -13,7 +13,7 @@ from minference import MInference
 
 def run_target_length(m: int, model, sampling_params, attn_type: str):
     # wget https://raw.githubusercontent.com/FranxYao/chain-of-thought-hub/main/gsm8k/lib_prompt/prompt_hardest.txt
-    prompt_complex = open("./dataset/sonnects.txt").read()
+    prompt_complex = open("./prompt_hardest.txt").read()
     input_ids = tokenizer(prompt_complex)["input_ids"]
     n = len(input_ids)
     b = m // n + 1
@@ -40,7 +40,8 @@ if __name__ == "__main__":
     args.add_argument(
         "--model_name",
         type=str,
-        default="./models--Qwen--Qwen2-0.5B",
+        # default="./models--Qwen--Qwen2-0.5B",
+        default="gradientai/Llama-3-8B-Instruct-Gradient-1048k"
     )
     args.add_argument(
         "--attn_type",
