@@ -3,6 +3,7 @@ from minference import MInference
 import time
 
 def truncate_if(text, max_len=12800):
+    print(f'{len(text)=}')
     return text[-max_len:]
 
 def brenchmark(llm, prompts):
@@ -44,13 +45,12 @@ if __name__ == "__main__":
     with open('dataset/sonnets.txt', 'r') as input:
         total = 40000
         x = int(total * 0.6)
-        y = int(total * 0.4)
 
         data = input.read()[:total]
 
         print(f'{len(data)=}')
         data1 = data[:x]
-        data2 = data[x:y]
+        data2 = data[x:]
 
     sampling_params = SamplingParams(
         temperature=0,
@@ -62,49 +62,38 @@ if __name__ == "__main__":
 
     model_name = "./models--Qwen--Qwen2-0.5B"
     
-    # llm1 = LLM(
+
+    # llm2 = LLM(
     #     model=model_name,
     #     max_num_seqs=1,
     #     enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
     #     dtype='float16',
     #     max_model_len=12800,
     #     block_size=256,
+    #     enable_prefix_caching=True,
     # )
-    #
 
-    llm2 = LLM(
+
+    llm3 = LLM(
         model=model_name,
         max_num_seqs=1,
         enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
         dtype='float16',
         max_model_len=12800,
         block_size=256,
-        # enable_prefix_caching=True,
+        enable_prefix_caching=True
     )
-
-
-    # llm3 = LLM(
-    #     model=model_name,
-    #     max_num_seqs=1,
-    #     enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
-    #     dtype='float16',
-    #     max_model_len=12800,
-    #     block_size=256,
-    #     # enable_prefix_caching=True
-    # )
 
     test_data = [data1, data1, data1, data2, data2, data2]
 
     minference_patch = MInference("vllm_minference", model_name)
     # llm1 = minference_patch(llm1)
-    llm2 = minference_patch(llm2)
+    # llm2 = minference_patch(llm2)
 
    
-    # standard_t = brenchmark(llm3, test_data)
-    # without_prefix_t = brenchmark(llm1, test_data)
-    with_prefix_t = brenchmark(llm2, test_data)
+    standard_t = brenchmark(llm3, test_data)
+    # minf_t = brenchmark(llm2, test_data)
 
-    # print(f'stadnard attention: {standard_t}')
-    # print(f'standard minfernece: {without_prefix_t}')
-    print(f'with prefix enable minference: {with_prefix_t}')
+    print(f'stadnard attention: {standard_t}')
+    # print(f'with prefix enable minference: {minf_t}')
     
