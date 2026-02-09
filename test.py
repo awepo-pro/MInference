@@ -78,7 +78,7 @@ if __name__ == "__main__":
         enforce_eager=True,     # disable to get 2-3x faster speed for CUDA graph
         dtype='float16',
         max_model_len=12800,
-        block_size=512,
+        block_size=256,
         # enable_prefix_caching=True,
     )
 
