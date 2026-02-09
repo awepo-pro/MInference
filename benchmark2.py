@@ -28,7 +28,13 @@ def run_target_length(m: int, model, sampling_params, attn_type: str):
         start = time.time()
         with torch.no_grad():
             outputs = llm.generate([prompt], sampling_params)
+
+            # avoid lazy 
+            print(f'{outputs=}')
+
         torch.cuda.synchronize()
+
+        # warn up, first iteration _ := 0, indicate false
         if _:
             s += time.time() - start
     print(attn_type, m, s / T)
