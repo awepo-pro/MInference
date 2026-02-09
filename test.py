@@ -2,6 +2,9 @@ from vllm import LLM, SamplingParams
 from minference import MInference
 import time
 
+def truncate_if(text, max_len=12800):
+    return text[-max_len:]
+
 def brenchmark(llm, prompts):
 
     # Use greedy sampling (temperature=0) for stable benchmarks
@@ -23,7 +26,7 @@ def brenchmark(llm, prompts):
         
         acc_prompt = acc_prompt + prompt
         start_time = time.time()
-        output = llm.generate([acc_prompt], sampling_params)
+        output = llm.generate([truncate_if(acc_prompt)], sampling_params)
         end_time = time.time()
         
         # output[0] only one question, so must always index 0
