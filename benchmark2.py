@@ -56,7 +56,7 @@ def run_target_length2(m: int, model, sampling_params, attn_type: str):
     warmup_prompt = prompt[:x]
     second_prompt = prompt[x:y]
     third_prompt = prompt[x:m]
-    forth_prompt = promt[x:2 * m]
+    forth_prompt = prompt[x:2 * m]
 
     torch.cuda.synchronize()
 
