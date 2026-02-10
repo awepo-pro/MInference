@@ -67,7 +67,7 @@ if __name__ == "__main__":
         temperature=0,
         top_p=1.0,
         top_k=-1,
-        max_tokens=100,
+        max_tokens=1,
         seed=42
     )
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         enable_chunked_prefill=False,
         enable_prefix_caching=True,
         block_size=256,
-        # gpu_memory_utilization=0.95
+        gpu_memory_utilization=0.95
     )
 
     # Patch MInference Module
