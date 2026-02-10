@@ -46,8 +46,8 @@ if __name__ == "__main__":
     args.add_argument(
         "--model_name",
         type=str,
-        # default="./models--Qwen--Qwen2-0.5B",
-        default="gradientai/Llama-3-8B-Instruct-Gradient-1048k"
+        default="./models--Qwen--Qwen2-0.5B",
+        # default="gradientai/Llama-3-8B-Instruct-Gradient-1048k"
     )
     args.add_argument(
         "--attn_type",
