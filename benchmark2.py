@@ -52,8 +52,8 @@ def run_target_length2(m: int, model, sampling_params, attn_type: str):
     prompt = tokenizer.decode(new_input_ids)
 
     warmup_prompt = prompt[:1_000]
-    second_prompt = prompt[1_000:3_000]
-    third_prompt = prompt[3_000:1_0000]
+    second_prompt = prompt[1_000:5_000]
+    third_prompt = prompt[5_000:m]
 
     torch.cuda.synchronize()
 
@@ -80,7 +80,7 @@ def run_target_length2(m: int, model, sampling_params, attn_type: str):
     torch.cuda.synchronize()
     used = time.time() - start
     print(f'{outputs[0].outputs[0].text[:10]=}')
-    print(attn_type, f'prefix: {len(second_prompt)}', f'compute: {len(third_prompt) - len(second_prompt)}')
+    print(attn_type, f'prefix: {len(second_prompt)}', f'compute: {len(third_prompt) - len(second_prompt)}', f'time: {used}')
 
     return used
 
