@@ -29,16 +29,60 @@ def run_target_length(m: int, model, sampling_params, attn_type: str):
         with torch.no_grad():
             outputs = llm.generate([prompt], sampling_params)
 
-            # avoid lazy 
-            print(f'{outputs[0].outputs[0].text[:10]=}')
 
         torch.cuda.synchronize()
 
         # warn up, first iteration _ := 0, indicate false
         if _:
             s += time.time() - start
+
+        # avoid lazy 
+        print(f'{outputs[0].outputs[0].text[:10]=}')
     print(attn_type, m, s / T)
     return s / T
+
+def run_target_length2(m: int, model, sampling_params, attn_type: str):
+    # wget https://raw.githubusercontent.com/FranxYao/chain-of-thought-hub/main/gsm8k/lib_prompt/prompt_hardest.txt
+    prompt_complex = open("./prompt_hardest.txt").read()
+    input_ids = tokenizer(prompt_complex)["input_ids"]
+    n = len(input_ids)
+    b = m // n + 1
+
+    new_input_ids = (input_ids * b)[:m]
+    prompt = tokenizer.decode(new_input_ids)
+
+    warmup_prompt = prompt[:1_000]
+    second_prompt = prompt[1_000:3_000]
+    third_prompt = prompt[3_000:1_0000]
+
+    torch.cuda.synchronize()
+
+    with torch.no_grad():
+        outputs = llm.generate([warmup_prompt], sampling_params)
+
+    torch.cuda.synchronize()
+    print(f'{outputs[0].outputs[0].text[:10]=}')
+
+    torch.cuda.synchronize()
+
+    with torch.no_grad():
+        outputs = llm.generate([second_prompt], sampling_params)
+
+    torch.cuda.synchronize()
+    print(f'{outputs[0].outputs[0].text[:10]=}')
+
+    torch.cuda.synchronize()
+
+    start = time.time()
+    with torch.no_grad():
+        outputs = llm.generate([third_prompt], sampling_params)
+
+    torch.cuda.synchronize()
+    used = time.time() - start
+    print(f'{outputs[0].outputs[0].text[:10]=}')
+    print(attn_type, f'prefix: {len(second_prompt)}', f'compute: {len(third_prompt) - len(second_prompt)}')
+
+    return used
 
 
 if __name__ == "__main__":
@@ -86,4 +130,4 @@ if __name__ == "__main__":
         minference_patch = MInference("vllm_minference", model_name)
         llm = minference_patch(llm)
 
-    run_target_length(args.context_window, llm, sampling_params, args.attn_type)
+    run_target_length2(args.context_window, llm, sampling_params, args.attn_type)
