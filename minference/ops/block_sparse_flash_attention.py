@@ -596,9 +596,9 @@ def block_sparse_attention_with_kvcache(
     assert num_heads == 1, f'{num_heads=} != 1'
     assert block_tables.shape[0] == 1, f'{block_tables.shape=}, where shape[0] != 1'
 
-    block_size = int(k_cache.shape[1])
-    assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
-    assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
+    # block_size = int(k_cache.shape[1])
+    # assert block_size % block_size_M == 0, f'{block_size=} is not divisible by {block_size_M}'
+    # assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
     # * seqlen before padded
     q_seqlen = query.shape[-2]

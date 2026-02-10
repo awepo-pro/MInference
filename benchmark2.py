@@ -51,9 +51,12 @@ def run_target_length2(m: int, model, sampling_params, attn_type: str):
     new_input_ids = (input_ids * b)[:m]
     prompt = tokenizer.decode(new_input_ids)
 
-    warmup_prompt = prompt[:1_000]
-    second_prompt = prompt[1_000:5_000]
-    third_prompt = prompt[5_000:m]
+    x = 500
+    y = 3000
+    warmup_prompt = prompt[:x]
+    second_prompt = prompt[x:y]
+    third_prompt = prompt[x:m]
+    forth_prompt = promt[x:2 * m]
 
     torch.cuda.synchronize()
 
@@ -75,12 +78,14 @@ def run_target_length2(m: int, model, sampling_params, attn_type: str):
 
     start = time.time()
     with torch.no_grad():
-        outputs = llm.generate([third_prompt], sampling_params)
+        outputs = llm.generate([third_prompt, forth_prompt], sampling_params)
 
     torch.cuda.synchronize()
     used = time.time() - start
     print(f'{outputs[0].outputs[0].text[:10]=}')
-    print(attn_type, f'prefix: {len(second_prompt)}', f'compute: {len(third_prompt) - len(second_prompt)}', f'time: {used}')
+    print(f'{outputs[1].outputs[0].text[:10]=}')
+    print(attn_type, f'prefix: {len(second_prompt)}', f'compute: {len(third_prompt) - len(second_prompt)}', f'compute: {len(forth_prompt)}')
+    print(f'time: {used}')
 
     return used
 
@@ -121,7 +126,7 @@ if __name__ == "__main__":
         max_model_len=24576,        # 256 * 96
         enable_chunked_prefill=False,
         enable_prefix_caching=True,
-        block_size=16,
+        block_size=32,
         gpu_memory_utilization=0.95
     )
 

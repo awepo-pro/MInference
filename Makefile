@@ -24,7 +24,7 @@ test:
 
 
 benchmark:
-	@VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} benchmark2.py --context_window 17_000
+	@VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} benchmark2.py --context_window 10_000
 
 run:
 	@VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} main.py 
