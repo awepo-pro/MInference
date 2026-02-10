@@ -121,7 +121,7 @@ if __name__ == "__main__":
         max_model_len=24576,        # 256 * 96
         enable_chunked_prefill=False,
         enable_prefix_caching=True,
-        block_size=256,
+        block_size=16,
         gpu_memory_utilization=0.95
     )
 

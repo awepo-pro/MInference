@@ -1509,6 +1509,7 @@ def minference_vllm_forward(
 
         # * it should be chunked prefill, that means decode and prefill mixed together
         if decode_meta := attn_metadata.decode_metadata:
+            assert False
             # Decoding run.
             key_cache, value_cache = kv_cache[0], kv_cache[1]
 
