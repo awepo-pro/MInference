@@ -122,6 +122,8 @@ if __name__ == "__main__":
 
     llm = LLM(
         model_name,
+        max_num_seqs=1,
+        dtype='float16',
         enforce_eager=True,
         max_model_len=24576,        # 256 * 96
         enable_chunked_prefill=False,
