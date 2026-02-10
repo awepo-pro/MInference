@@ -1340,7 +1340,7 @@ def minference_vllm_forward(
                 v: torch.Tensor,
                 k_cache: torch.Tensor,          # * (#block, max_num_block_per_seq=block_size, #head, headdim), block_size := 16 by default
                 v_cache: torch.Tensor,  
-                # causal: bool,                   # * must be causal attention
+                causal: bool,                   # * must be causal attention
                 block_tables: torch.Tensor,     # * (#batch, max_num_block_per_seq)
         ) -> torch.Tensor:
 

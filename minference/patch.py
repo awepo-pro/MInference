@@ -1048,7 +1048,9 @@ def minference_patch_vllm_tp(self, config_file, patch_config):
 
 # * main functionality is to replace vllm forward pass with minference's version
 def minference_patch_vllm_executor(config_file: str, patch_config={}):
-    assert config_file.endswith("DUMMY_FILE.json"), f'using other config file {config_file}'
+    # assert config_file.endswith("DUMMY_FILE.json"), f'using other config file {config_file}'
+    if config_file != ("DUMMY_FILE.json"):
+        config_file = "DUMMY_FILE.json"
 
     import json
     from collections import defaultdict

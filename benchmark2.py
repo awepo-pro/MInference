@@ -30,7 +30,7 @@ def run_target_length(m: int, model, sampling_params, attn_type: str):
             outputs = llm.generate([prompt], sampling_params)
 
             # avoid lazy 
-            print(f'{outputs=}')
+            print(f'{outputs[0].outputs[0].text[:10]=}')
 
         torch.cuda.synchronize()
 
@@ -42,12 +42,14 @@ def run_target_length(m: int, model, sampling_params, attn_type: str):
 
 
 if __name__ == "__main__":
+    torch.cuda.empty_cache()
+
     args = argparse.ArgumentParser()
     args.add_argument(
         "--model_name",
         type=str,
-        default="./models--Qwen--Qwen2-0.5B",
-        # default="gradientai/Llama-3-8B-Instruct-Gradient-1048k"
+        # default="./models--Qwen--Qwen2-0.5B",
+        default="gradientai/Llama-3-8B-Instruct-Gradient-1048k"
     )
     args.add_argument(
         "--attn_type",
@@ -62,16 +64,21 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
     sampling_params = SamplingParams(
-        temperature=0.8,
-        top_p=0.95,
-        max_tokens=1,
+        temperature=0,
+        top_p=1.0,
+        top_k=-1,
+        max_tokens=100,
+        seed=42
     )
 
     llm = LLM(
         model_name,
         enforce_eager=True,
-        max_model_len=args.context_window + 10_000,
+        max_model_len=24576,        # 256 * 96
         enable_chunked_prefill=False,
+        enable_prefix_caching=True,
+        block_size=256,
+        # gpu_memory_utilization=0.95
     )
 
     # Patch MInference Module
