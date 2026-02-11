@@ -9,6 +9,8 @@ from minference.ops.block_sparse_flash_attention import (
     block_sparse_attention_with_kvcache
 )
 
+from vllm import _custom_ops as vllm_ops
+
 
 
 def block_sparse_topk_vllm(q, k, v, head_id):
@@ -104,9 +106,10 @@ def get_tensor_model_parallel_rank():
     return 0
 
 # Monkey-patch torch.ops._C_cache_ops for KV Cache writing
-if not hasattr(torch.ops, "_C_cache_ops"):
-    torch.ops._C_cache_ops = types.SimpleNamespace()
-
+# might not find _C_cache_ops in torch, since it might be built with vllm
+# if not hasattr(torch.ops, "_C_cache_ops"):
+#     torch.ops._C_cache_ops = types.SimpleNamespace()
+#
 # def mock_reshape_and_cache_flash(key, value, k_cache, v_cache, slot_mapping, kv_cache_dtype, k_scale, v_scale):
 #     """
 #     Python implementation of the C++ kernel to write Q/K/V into the block cache.
@@ -116,11 +119,11 @@ if not hasattr(torch.ops, "_C_cache_ops"):
 #     # Flatten caches for easier indexing: [num_blocks * block_size, num_kv_heads, head_size]
 #     # Note: Real vLLM cache is [num_blocks, block_size, num_kv_heads, head_size]
 #     # We will compute block indices from slot_mapping manually for the 5D tensor.
-    
+#
 #     num_kv_heads = k_cache.shape[2]
 #     head_size = k_cache.shape[3]
 #     block_size = k_cache.shape[1]
-    
+#
 #     # Iterate over tokens to cache
 #     for i, slot in enumerate(slot_mapping):
 #         # slot is a linear index. 
@@ -128,10 +131,10 @@ if not hasattr(torch.ops, "_C_cache_ops"):
 #         # block_offset = slot % block_size
 #         block_idx = slot.item() // block_size
 #         block_offset = slot.item() % block_size
-        
+#
 #         k_cache[block_idx, block_offset, :, :] = key[i]
 #         v_cache[block_idx, block_offset, :, :] = value[i]
-
+#
 # torch.ops._C_cache_ops.reshape_and_cache_flash = mock_reshape_and_cache_flash
 
 
@@ -147,7 +150,7 @@ class MockAttentionLayer:
         self.head_size = 64
         self.scale = 1.0 / (self.head_size ** 0.5)
         self.attn_type = AttentionType.DECODER
-        self.kv_cache_dtype = "float16"
+        self.kv_cache_dtype = "auto"
         self.sliding_window = None
         self.alibi_slopes = None
         self.logits_soft_cap = None
@@ -350,8 +353,8 @@ class MockAttentionLayer:
                     kv_cache[1],
                     updated_slot_mapping.flatten(),  # type: ignore[union-attr]
                     kv_cache_dtype,
-                    layer._k_scale,
-                    layer._v_scale,
+                    torch.tensor(layer._k_scale),
+                    torch.tensor(layer._v_scale),
                 )
 
                 torch.cuda.synchronize()
@@ -457,7 +460,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
 
-    BLOCK_SIZE = 16
+    BLOCK_SIZE = 32
 
     num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
     print(f"  [Info] Blocks required: {num_blocks_needed}")
@@ -541,7 +544,7 @@ def warmup():
     print("=== Starting Warm Up GPU ===")
     
     device = "cuda"
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
@@ -580,7 +583,7 @@ def test_minf(prefix_len, total_len):
     print("=== Starting MInference Attention Test Case ===")
     
     device = "cuda"
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
@@ -644,13 +647,14 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
     return used
 
+# VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} benchmark3.py
 if __name__ == "__main__":
     # test_minf_prefix_attention(2_000, 10_000)
 
     T = 10
     used = 0
     for _ in range(T):
-        used += test_minf(10_000, 100_000)
-        # used += test_minf_prefix_attention(10_000, 100_000)
+        # used += test_minf(30_000, 1_000_000)
+        used += test_minf_prefix_attention(300_000, 1_000_000)
 
     print(f'time: {used / T}')
