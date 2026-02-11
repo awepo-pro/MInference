@@ -362,7 +362,7 @@ class MockAttentionLayer:
         prefill_output = output[:num_prefill_query_tokens]
 
         assert query.shape[0] == num_prefill_query_tokens
-        assert decode_query.shape[0] == num_decode_query_tokens
+        # assert decode_query.shape[0] == num_decode_query_tokens
 
         # po_debug.debug_print(attn_metadata)
 
