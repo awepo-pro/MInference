@@ -328,14 +328,14 @@ class MockAttentionLayer:
                 print(f'{query.shape=}, {key.shape=}, {value.shape=}')
                 
                 # Sync before timing
-                if torch.cuda.is_available(): torch.cuda.synchronize()
+                torch.cuda.synchronize()
                 start = time.time()
 
                 with torch.no_grad():
                     # Pass CPU tensors directly
                     out = minference_prefill_func(query, key, value)
 
-                if torch.cuda.is_available(): torch.cuda.synchronize()
+                torch.cuda.synchronize()
                 used = time.time() - start
                 print(f'time: {used}')
 
@@ -346,7 +346,7 @@ class MockAttentionLayer:
 
                 assert prefill_meta.seq_lens is not None
                     
-                if torch.cuda.is_available(): torch.cuda.synchronize()
+                torch.cuda.synchronize()
                 start = time.time()
                 
                 with torch.no_grad():
@@ -362,7 +362,7 @@ class MockAttentionLayer:
                     )
                     output[:num_prefill_query_tokens] = res
 
-                if torch.cuda.is_available(): torch.cuda.synchronize()
+                torch.cuda.synchronize()
                 used = time.time() - start
                 print(f'time: {used}')
 
