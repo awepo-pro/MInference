@@ -517,4 +517,4 @@ def test_prefix_attention(prefix_len, total_len):
     print(f'time: {used}')
 
 if __name__ == "__main__":
-    test_prefix_attention()
+    test_prefix_attention(2_000, 10_000)
