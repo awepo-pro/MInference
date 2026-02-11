@@ -315,8 +315,8 @@ class MockAttentionLayer:
         fp8_attention = kv_cache_dtype.startswith("fp8")
 
         # assert kv_cache.shape[0] == 2, f'{kv_cache.shape}, first diemnsion must be 2'
-        key_cache = kv_cache[0] if kv_cache[0] is not None else None
-        value_cache = kv_cache[1] if kv_cache[1] is not None else None
+        key_cache = kv_cache[0] if kv_cache is not None else None
+        value_cache = kv_cache[1] if kv_cache is not None else None
 
         if key_cache is not None and value_cache is not None and kv_cache.numel() > 0:
             # assert False, f'{kv_cache.numel()=}'
@@ -370,7 +370,7 @@ class MockAttentionLayer:
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             # * kv_cache.numel() != 0, prefill_meta.block_tables is not None
-            if (key_cache is not None or kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
+            if (kv_cache is not None or kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
                 # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
                 # po_debug.debug_print(value.shape)
