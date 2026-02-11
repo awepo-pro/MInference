@@ -318,7 +318,7 @@ class MockAttentionLayer:
         key_cache = kv_cache[0]
         value_cache = kv_cache[1]
 
-        if kv_cache.numel() > 0:
+        if kv_cache and kv_cache.numel() > 0:
             assert False, f'{kv_cache.numel()=}'
             # We skip updating the KV cache under two conditions:
             #  a. When the Attention Type is ENCODER. In this phase, we compute
@@ -530,16 +530,6 @@ def test_minf(prefix_len, total_len):
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
 
-    BLOCK_SIZE = 16
-
-    num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
-    print(f"  [Info] Blocks required: {num_blocks_needed}")
-
-    kv_cache = torch.empty(
-        2, num_blocks_needed, BLOCK_SIZE, layer.num_kv_heads, layer.head_size,
-        dtype=dtype, device=device
-    )
-
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
     print("\n[Stage 1] Running Standard Prefill...")
     
@@ -565,7 +555,7 @@ def test_minf(prefix_len, total_len):
     
     out1 = layer.forward_vllm_080(
         layer=layer, # Pass self as layer for property access
-        query=q1, key=k1, value=v1, kv_cache=kv_cache,      # kv_cache is empty
+        query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
         attn_metadata=meta_1
     )
     
@@ -591,7 +581,7 @@ def test_minf(prefix_len, total_len):
     
     out2 = layer.forward_vllm_080(
         layer=layer,
-        query=q2, key=k2, value=v2, kv_cache=kv_cache,
+        query=q2, key=k2, value=v2, kv_cache=None,
         attn_metadata=meta_2
     )
 
