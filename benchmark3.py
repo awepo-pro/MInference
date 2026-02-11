@@ -340,6 +340,9 @@ class MockAttentionLayer:
                 # If kv_cache is not provided, the new key and value tensors are
                 # not cached. This happens during the initial memory
                 # profiling run.
+                torch.cuda.synchronize()
+
+                start = time.time()
                 torch.ops._C_cache_ops.reshape_and_cache_flash(
                     key,
                     value,
@@ -350,6 +353,10 @@ class MockAttentionLayer:
                     layer._k_scale,
                     layer._v_scale,
                 )
+
+                torch.cuda.synchronize()
+                print(f'kv caching: {time.time() - start}')
+
 
         num_prefill_query_tokens, num_prefill_kv_tokens, num_decode_query_tokens = get_num_prefill_decode_query_kv_tokens(attn_metadata, attn_type)
 
