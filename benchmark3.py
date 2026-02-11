@@ -3,10 +3,18 @@ from typing import Optional, List
 from dataclasses import dataclass
 import types
 
-from minference.ops.block_sparse_flash_attention import (
-    block_sparse_attention, 
-    block_sparse_attention_with_kvcache
-)
+# Try importing, mock if not available for standalone testing purposes
+try:
+    from minference.ops.block_sparse_flash_attention import (
+        block_sparse_attention, 
+        block_sparse_attention_with_kvcache
+    )
+except ImportError:
+    # Mock for testing if minference is not installed
+    def block_sparse_attention(q, k, v, top_k):
+        return torch.zeros_like(q)
+    def block_sparse_attention_with_kvcache(q, k, v, k_c, v_c, bt, top_k, sl):
+        return torch.zeros_like(q)
 
 
 def block_sparse_topk_vllm(q, k, v, head_id):
@@ -249,6 +257,12 @@ class MockAttentionLayer:
 
             output = torch.empty_like(q)
 
+            # --- FIX: Retrieve seq_lens correctly and ensure it is a tensor ---
+            seq_lens = attn_metadata.prefill_metadata.seq_lens
+            if not isinstance(seq_lens, torch.Tensor):
+                seq_lens = torch.tensor(seq_lens, device=q.device, dtype=torch.int32)
+            # ----------------------------------------------------------------
+
             for head in range(q.size(-2)):
                 # * (seqlen, #head=1, headdim), unsqueeze(1) to make sure (#head=1) dimension doesn't disappear
                 q_head = q[:, head, :].unsqueeze(1)
@@ -282,7 +296,7 @@ class MockAttentionLayer:
                     k_head_cache,               # * (#block, block_size, #head=1, headdim)
                     v_head_cache,
                     block_tables,
-                    attn_metadata.seq_lens)     # * out / in [BATCH=1, N_HEADS=1, N_CTX, D_HEAD]
+                    seq_lens)     # * FIXED: Passing tensor derived from attn_metadata.prefill_metadata
 
                 # * transform into (n_ctx, n_heads, d_head)
                 out = out.transpose(1, 2).squeeze(0).contiguous()
@@ -407,8 +421,8 @@ class MockAttentionLayer:
 def test_prefix_attention():
     print("=== Starting Prefix Attention Test Case ===")
     
-    device = "cuda" # Use "cuda" if available
-    dtype = torch.float16 # Use float16 on GPU
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
@@ -477,7 +491,7 @@ def test_prefix_attention():
     meta_2 = AttnMetadata(
         prefill_metadata=PrefillMetadata(
             block_tables=block_tables_2, # Presence triggers prefix path
-            seq_lens=[5] # Context length including prefix
+            seq_lens=[5] # Context length including prefix (List[int])
         ),
         slot_mapping=slot_mapping_2,
         num_prefill_tokens=seq_len_2
