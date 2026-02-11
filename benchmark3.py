@@ -429,11 +429,14 @@ def test_prefix_attention(prefix_len, total_len):
     
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
-    
+
     BLOCK_SIZE = 16
-    NUM_BLOCKS = 100
+
+    num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
+    print(f"  [Info] Blocks required: {num_blocks_needed}")
+
     kv_cache = torch.zeros(
-        2, NUM_BLOCKS, BLOCK_SIZE, layer.num_kv_heads, layer.head_size,
+        2, num_blocks_needed, BLOCK_SIZE, layer.num_kv_heads, layer.head_size,
         dtype=dtype, device=device
     )
     
@@ -478,9 +481,6 @@ def test_prefix_attention(prefix_len, total_len):
     
     # STAGE 2: New Suffix (10 tokens)
     seq_len_2 = total_len - prefix_len
-
-    num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
-    print(f"  [Info] Blocks required: {num_blocks_needed}")
     
     q2 = torch.randn(seq_len_2, layer.num_heads * layer.head_size, device=device, dtype=dtype)
     k2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
