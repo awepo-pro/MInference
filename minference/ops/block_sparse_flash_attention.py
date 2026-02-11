@@ -343,12 +343,15 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # -- compute qk --
         qk = tl.zeros([BLOCK_M, BLOCK_N], dtype=tl.float32)
 
+        q_seqlen = tl.load(k_seqlen)
+        k_seqlen = tl.load(q_seqlen)
+
         # * q and k are not same len. q len is relative
         q_preced_len = k_seqlen - q_seqlen
-        q_absolute = q_preced_len + start_m * BLOCK_M
-        abs_offs_m = (q_absolute + tl.arange(0, BLOCK_M)).to(tl.int32)
+        # q_absolute = q_preced_len + start_m * BLOCK_M
+        # abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
         # * abs_offs_m = q_preced_len + start_m * BLOCK_M + tl.arange(0, BLOCK_M)
-        # abs_offs_m = (q_preced_len + offs_m).to(tl.int32)
+        abs_offs_m = (q_preced_len + offs_m).to(tl.int32)
         
         cols = (start_n + offs_n).to(tl.int32)
         causal_mask = cols[None, :] <= abs_offs_m[:, None]
