@@ -251,6 +251,10 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     # * b \times h
     off_hz = tl.program_id(1)
 
+    cur_q_seqlen = q_seqlen.to(tl.int32)
+    cur_k_seqlen = k_seqlen.to(tl.int32)
+
+
     assert off_hz == 0, 'off_hz != 1'
 
     # * do nothing if padding
@@ -311,10 +315,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
     m_mask = offs_m[:, None] < q_seqlen
     block_count = MAX_BLOCKS_PRE_ROW
-
-    cur_q_seqlen = q_seqlen.to(tl.int32)
-    cur_k_seqlen = k_seqlen.to(tl.int32)
-
 
     for sparse_block_idx in range(block_count):
         # make sure use .to(tl.int32) that compiler won't treat real_block_idx as pointer
