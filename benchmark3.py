@@ -168,6 +168,7 @@ class MockAttentionLayer:
         output: Optional[torch.Tensor] = None,
         output_scale: Optional[torch.Tensor] = None,
         layer_idx: int = 0,
+        benchmark: bool = False
     ) -> torch.Tensor:
         """Forward pass with FlashAttention.
 
@@ -366,6 +367,7 @@ class MockAttentionLayer:
         # assert decode_query.shape[0] == num_decode_query_tokens
 
         # po_debug.debug_print(attn_metadata)
+        used = 0
 
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
@@ -388,7 +390,8 @@ class MockAttentionLayer:
                     out = minference_prefill_func(query, key, value)
 
                 torch.cuda.synchronize()
-                print(f'time: {time.time() - start}')
+                used = time.time() - start
+                print(f'time: {used}')
 
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
@@ -416,7 +419,8 @@ class MockAttentionLayer:
                     )
 
                 torch.cuda.synchronize()
-                print(f'time: {time.time() - start}')
+                used = time.time() - start
+                print(f'time: {used}')
 
 
                 assert output.shape[0] == num_prefill_query_tokens, f'output size =({output.shape} not equivalent to {num_prefill_query_tokens}); actually not really if padded output, remove this line if necessary'
@@ -428,7 +432,7 @@ class MockAttentionLayer:
             pass # Skipped for this test case
 
         # Reshape the output tensor.
-        return output.view(num_tokens, hidden_size)
+        return output.view(num_tokens, hidden_size), used if benchmark else None
 
 # ==========================================
 # 3. Test Harness: Prefix Attention
@@ -595,10 +599,11 @@ def test_minf(prefix_len, total_len):
         num_prefill_tokens=seq_len_1
     )
     
-    out1 = layer.forward_vllm_080(
+    out1, used = layer.forward_vllm_080(
         layer=layer, # Pass self as layer for property access
         query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
-        attn_metadata=meta_1
+        attn_metadata=meta_1,
+        benchmark=True
     )
     
     # STAGE 2: New Suffix (10 tokens)
@@ -628,7 +633,14 @@ def test_minf(prefix_len, total_len):
     )
 
     print("  [Success] Stage 2 completed.")
+    return used
 
 if __name__ == "__main__":
     # test_minf_prefix_attention(2_000, 10_000)
-    test_minf(2_000, 100_000)
+
+    T = 10
+    used = 0
+    for _ in range(T):
+        used += test_minf(2_000, 100_000)
+
+    print(f'time: {used / T}')
