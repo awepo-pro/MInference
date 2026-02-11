@@ -370,7 +370,7 @@ class MockAttentionLayer:
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             # * kv_cache.numel() != 0, prefill_meta.block_tables is not None
-            if (kv_cache or kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
+            if (not kv_cache or kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
                 # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
                 # po_debug.debug_print(value.shape)
