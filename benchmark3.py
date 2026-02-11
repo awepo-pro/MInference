@@ -144,10 +144,9 @@ def get_tensor_model_parallel_rank():
 
 class MockAttentionLayer:
     def __init__(self):
-        # Qwen-2 0.5B style config
-        self.num_heads = 14
-        self.num_kv_heads = 2
-        self.head_size = 64
+        self.num_heads = 28
+        self.num_kv_heads = 4
+        self.head_size = 128
         self.scale = 1.0 / (self.head_size ** 0.5)
         self.attn_type = AttentionType.DECODER
         self.kv_cache_dtype = "auto"
