@@ -407,8 +407,8 @@ class MockAttentionLayer:
 def test_prefix_attention():
     print("=== Starting Prefix Attention Test Case ===")
     
-    device = "cpu" # Use "cuda" if available
-    dtype = torch.float32 # Use float16 on GPU
+    device = "cuda" # Use "cuda" if available
+    dtype = torch.float16 # Use float16 on GPU
     
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
