@@ -437,6 +437,7 @@ class MockAttentionLayer:
 import math
 
 def test_minf_prefix_attention(prefix_len, total_len):
+    warmup()
     print("=== Starting Prefix Attention Test Case ===")
     
     device = "cuda"
@@ -523,8 +524,46 @@ def test_minf_prefix_attention(prefix_len, total_len):
 
     print("  [Success] Stage 2 completed.")
 
+def warmup():
+    print("=== Starting Warm Up GPU ===")
+    
+    device = "cuda"
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    
+    # 1. Initialize Layer and Cache
+    layer = MockAttentionLayer()
+
+    # --- STAGE 1: Standard Prefill ("Hello my name is") ---
+    print("\n[Stage 1] Running Standard Prefill...")
+    
+    # Sequence length 4, fits in Block 0
+    seq_len_1 = 100
+    
+    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    
+    # Slot mapping: indices [0, 1, 2, 3] in Block 0
+    # Linear indices = block_idx * block_size + offset
+    slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
+    
+    meta_1 = AttnMetadata(
+        prefill_metadata=PrefillMetadata(
+            block_tables=None,
+            seq_lens=[100]
+        ), # None triggers standard prefill
+        slot_mapping=slot_mapping_1,
+        num_prefill_tokens=seq_len_1
+    )
+    
+    out1 = layer.forward_vllm_080(
+        layer=layer, # Pass self as layer for property access
+        query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
+        attn_metadata=meta_1
+    )
 
 def test_minf(prefix_len, total_len):
+    warmup()
     print("=== Starting MInference Attention Test Case ===")
     
     device = "cuda"
@@ -591,5 +630,5 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
 
 if __name__ == "__main__":
-    test_minf_prefix_attention(2_000, 10_000)
+    # test_minf_prefix_attention(2_000, 10_000)
     test_minf(2_000, 100_000)
