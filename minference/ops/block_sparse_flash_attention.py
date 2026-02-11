@@ -312,9 +312,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     m_mask = offs_m[:, None] < q_seqlen
     block_count = MAX_BLOCKS_PRE_ROW
 
-    q_len = tl.load(k_seqlen)
-    k_len = tl.load(q_seqlen)
-
 
     for sparse_block_idx in range(block_count):
         # make sure use .to(tl.int32) that compiler won't treat real_block_idx as pointer
@@ -348,7 +345,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         qk = tl.zeros([BLOCK_M, BLOCK_N], dtype=tl.float32)
 
         # * q and k are not same len. q len is relative
-        q_preced_len = k_len - q_len
+        q_preced_len = k_seqlen - q_seqlen
         # q_absolute = q_preced_len + start_m * BLOCK_M
         # abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
         # * abs_offs_m = q_preced_len + start_m * BLOCK_M + tl.arange(0, BLOCK_M)
