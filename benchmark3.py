@@ -319,6 +319,7 @@ class MockAttentionLayer:
         value_cache = kv_cache[1]
 
         if kv_cache.numel() > 0:
+            assert False, f'{kv_cache.numel()=}'
             # We skip updating the KV cache under two conditions:
             #  a. When the Attention Type is ENCODER. In this phase, we compute
             #     only the encoder attention without updating the cache.
