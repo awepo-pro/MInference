@@ -569,9 +569,9 @@ def test_minf(prefix_len, total_len):
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
     
-    q2 = torch.cat([q1, torch.randn(seq_len_2, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
-    k2 = torch.cat([k1, torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
-    v2 = torch.cat([v1, torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    q2 = torch.cat([q1, torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
+    k2 = torch.cat([k1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    v2 = torch.cat([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
