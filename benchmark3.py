@@ -454,7 +454,6 @@ def test_minf_prefix_attention(prefix_len, total_len):
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
     print("\n[Stage 1] Running Standard Prefill...")
     
-    # Sequence length 4, fits in Block 0
     seq_len_1 = prefix_len
     
     q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
@@ -466,7 +465,10 @@ def test_minf_prefix_attention(prefix_len, total_len):
     slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
     
     meta_1 = AttnMetadata(
-        prefill_metadata=PrefillMetadata(block_tables=None), # None triggers standard prefill
+        prefill_metadata=PrefillMetadata(
+            block_tables=None,
+            seq_lens=[prefix_len]
+        ), # None triggers standard prefill
         slot_mapping=slot_mapping_1,
         num_prefill_tokens=seq_len_1
     )
@@ -489,12 +491,12 @@ def test_minf_prefix_attention(prefix_len, total_len):
     # --- STAGE 2: Prefix-Enabled Prefill ("... Bob") ---
     print("\n[Stage 2] Running Prefix-Enabled Prefill...")
     
-    # STAGE 2: New Suffix (10 tokens)
-    seq_len_2 = total_len - prefix_len
+    seq_len_2 = total_len
+    remains = seq_len_2 - prefix_len
     
-    q2 = torch.randn(seq_len_2, layer.num_heads * layer.head_size, device=device, dtype=dtype)
-    k2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    v2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    q2 = q1 + torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k2 = k1 + torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v2 = v1 + torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
@@ -591,5 +593,5 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
 
 if __name__ == "__main__":
-    # test_minf_prefix_attention(2_000, 10_000)
-    test_minf(2_000, 10_000)
+    test_minf_prefix_attention(2_000, 10_000)
+    # test_minf(2_000, 1_000_000)
