@@ -472,20 +472,16 @@ def test_prefix_attention():
     # --- STAGE 2: Prefix-Enabled Prefill ("... Bob") ---
     print("\n[Stage 2] Running Prefix-Enabled Prefill...")
     
-    # New suffix length 1 ("Bob"), Total length 5
-    # It reuses the 4 tokens from Stage 1 (Block 0)
-    seq_len_2 = 1 
+    # STAGE 2: New Suffix (10 tokens)
+    seq_len_2 = 10 
+    total_len = seq_len_1 + seq_len_2 # 14
     
     q2 = torch.randn(seq_len_2, layer.num_heads * layer.head_size, device=device, dtype=dtype)
     k2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     v2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     
-    # Slot mapping: index 4 (Start of Block 0, offset 4 if block_size > 4)
-    # Since Block size is 16, token 4 is still in Block 0 at offset 4.
-    slot_mapping_2 = torch.tensor([4], device=device, dtype=torch.long)
-    
-    # Block Tables: Point to Block 0
-    # Shape: [batch_size=1, max_blocks=1]
+    # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
+    slot_2 = torch.arange(seq_len_1, total_len, device=device, dtype=torch.long)
     block_tables_2 = torch.tensor([[0]], device=device, dtype=torch.int32)
     
     meta_2 = AttnMetadata(
@@ -493,7 +489,7 @@ def test_prefix_attention():
             block_tables=block_tables_2, # Presence triggers prefix path
             seq_lens=[5] # Context length including prefix (List[int])
         ),
-        slot_mapping=slot_mapping_2,
+        slot_mapping=slot_2,
         num_prefill_tokens=seq_len_2
     )
     
