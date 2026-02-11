@@ -455,12 +455,12 @@ def test_minf_prefix_attention(prefix_len, total_len):
     print("=== Starting Prefix Attention Test Case ===")
     
     device = "cuda"
-    dtype = torch.float16 if device == "cuda" else torch.float32
+    dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
 
-    BLOCK_SIZE = 32
+    BLOCK_SIZE = 64
 
     num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
     print(f"  [Info] Blocks required: {num_blocks_needed}")
