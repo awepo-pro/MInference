@@ -315,8 +315,8 @@ class MockAttentionLayer:
         fp8_attention = kv_cache_dtype.startswith("fp8")
 
         # assert kv_cache.shape[0] == 2, f'{kv_cache.shape}, first diemnsion must be 2'
-        key_cache = kv_cache[0] if kv_cache else None
-        value_cache = kv_cache[1] if kv_cache else None
+        key_cache = kv_cache[0] if kv_cache[0] is not None else None
+        value_cache = kv_cache[1] if kv_cache[1] is not None else None
 
         if kv_cache and kv_cache.numel() > 0:
             # assert False, f'{kv_cache.numel()=}'
