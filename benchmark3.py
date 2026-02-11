@@ -3,10 +3,64 @@ from typing import Optional, List
 from dataclasses import dataclass
 import types
 
-from .ops.block_sparse_flash_attention import (
-    block_sparse_topk_vllm, 
-    block_sparse_topk_vllm_with_kvcache
+from minference.ops.block_sparse_flash_attention import (
+    block_sparse_attention, 
+    block_sparse_attention_with_kvcache
 )
+
+
+def block_sparse_topk_vllm(q, k, v, head_id):
+    # * q, k, v \in (batch=1, head=1, seqlen, head_size)
+    def block_sparse_kernel(q, k, v, top_k=15):
+        return block_sparse_attention(q, k, v, top_k)
+
+    return block_sparse_kernel(q, k, v)
+
+
+def block_sparse_topk_vllm_with_kvcache(
+        q,                  # * (batch=1, #head=1, total_tokens, headdim) 
+        k, 
+        v,
+        k_cache,            # * (#block, block_size, #head=1, headdim)
+        v_cache,
+        block_tables,        # * (#batch, max_num_block_per_seq)
+        seq_lens,            # * (#batch)
+    ) -> torch.Tensor:
+    
+    # * q \in (batch=1, head=1, total_tokens, head_size)
+    bsz = q.shape[0]        # * bsz should be 1
+    assert bsz == 1, f'bsz: {bsz} is not 1'
+
+    # po_debug.debug_print(q)
+
+    def block_sparse_kernel_with_kvcache(
+            q, k, v, 
+            k_cache, v_cache,
+            # cu_seqlens_q, max_seqlne_q,
+            # cu_seqlens_k, max_seqlen_k,
+            block_tables,
+            seq_lens: torch.Tensor, 
+            top_k=15) -> torch.Tensor:
+        return block_sparse_attention_with_kvcache(
+            q, k, v,
+            k_cache, v_cache,
+            block_tables,
+            top_k,
+            seq_lens)
+
+    return block_sparse_kernel_with_kvcache(
+        q,                  # * (batch=1, #head=1, total_tokens, headdim) 
+        k, 
+        v,
+        k_cache,            # * (#block, max_num_block_per_seq, #head=1, headdim)
+        v_cache,
+        # cu_seqlens_q,       # * (#batch + 1)
+        # max_seqlen_q,
+        # cu_seqlens_k, 
+        # max_seqlen_k,
+        block_tables,
+        seq_lens)        # * (#batch, max_num_block_per_seq)
+
 
 # ==========================================
 # 1. Mock vLLM Structures & Constants
@@ -99,8 +153,6 @@ class MockAttentionLayer:
         self._k_scale = 1.0
         self._v_scale = 1.0
 
-        self.block_sparse_topk_vllm_with_kvcache = block_sparse_topk_vllm_with_kvcache
-        self.block_sparse_topk_vllm = block_sparse_topk_vllm
 
     # --- YOUR PROVIDED CODE BELOW ---
     def forward_vllm_080(
@@ -162,7 +214,7 @@ class MockAttentionLayer:
                 k_head = k_head.transpose(1, 2)
                 v_head = v_head.transpose(1, 2)
 
-                out = self.block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
+                out = block_sparse_topk_vllm(q_head, k_head, v_head, head + head_idx_st)
 
                 out = out.transpose(1, 2).squeeze(0).contiguous()
                 output[:, head:head+1, :] = out
@@ -223,7 +275,7 @@ class MockAttentionLayer:
                 k_head_cache = k_cache[:, :, k_cache_head, :].unsqueeze(2)
                 v_head_cache = v_cache[:, :, v_cache_head, :].unsqueeze(2)
 
-                out = self.block_sparse_topk_vllm_with_kvcache(
+                out = block_sparse_topk_vllm_with_kvcache(
                     q_head, 
                     k_head,
                     v_head,
