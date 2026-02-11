@@ -4,18 +4,11 @@ from dataclasses import dataclass
 import types
 import time
 
-# Try importing, mock if not available for standalone testing purposes
-try:
-    from minference.ops.block_sparse_flash_attention import (
-        block_sparse_attention, 
-        block_sparse_attention_with_kvcache
-    )
-except ImportError:
-    # Mock for testing if minference is not installed
-    def block_sparse_attention(q, k, v, top_k):
-        return torch.zeros_like(q)
-    def block_sparse_attention_with_kvcache(q, k, v, k_c, v_c, bt, top_k, sl):
-        return torch.zeros_like(q)
+from minference.ops.block_sparse_flash_attention import (
+    block_sparse_attention, 
+    block_sparse_attention_with_kvcache
+)
+
 
 
 def block_sparse_topk_vllm(q, k, v, head_id):
@@ -385,7 +378,16 @@ class MockAttentionLayer:
                 # po_debug.debug_print(num_decode_query_tokens)    # * 0
                 
                 print("  [Logic Path] Entering Standard Prefill (minference_prefill_func)")
-                out = minference_prefill_func(query, key, value)
+                torch.cuda.synchronize()
+    
+                start = time.time()
+
+                with torch.no_grad():
+                    out = minference_prefill_func(query, key, value)
+
+                torch.cuda.synchronize()
+                print(f'time: {time.time() - start}')
+
                 assert output[:num_prefill_query_tokens].shape == out.shape
 
                 output[:num_prefill_query_tokens] = out
@@ -394,15 +396,23 @@ class MockAttentionLayer:
                 # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
                     
-                output[:num_prefill_query_tokens] = minference_prefill_kvcache_func(
-                    query,
-                    key,
-                    value,
-                    key_cache,
-                    value_cache,
-                    causal=True,
-                    block_tables=prefill_meta.block_tables
-                )
+                torch.cuda.synchronize()
+    
+                start = time.time()
+                with torch.no_grad():
+                    output[:num_prefill_query_tokens] = minference_prefill_kvcache_func(
+                        query,
+                        key,
+                        value,
+                        key_cache,
+                        value_cache,
+                        causal=True,
+                        block_tables=prefill_meta.block_tables
+                    )
+
+                torch.cuda.synchronize()
+                print(f'time: {time.time() - start}')
+
 
                 assert output.shape[0] == num_prefill_query_tokens, f'output size =({output.shape} not equivalent to {num_prefill_query_tokens}); actually not really if padded output, remove this line if necessary'
 
@@ -421,10 +431,10 @@ class MockAttentionLayer:
 
 import math
 
-def test_prefix_attention(prefix_len, total_len):
+def test_minf_prefix_attention(prefix_len, total_len):
     print("=== Starting Prefix Attention Test Case ===")
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda"
     dtype = torch.float16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
@@ -460,12 +470,11 @@ def test_prefix_attention(prefix_len, total_len):
         num_prefill_tokens=seq_len_1
     )
     
-    with torch.no_grad():
-        out1 = layer.forward_vllm_080(
-            layer=layer, # Pass self as layer for property access
-            query=q1, key=k1, value=v1, kv_cache=kv_cache,
-            attn_metadata=meta_1
-        )
+    out1 = layer.forward_vllm_080(
+        layer=layer, # Pass self as layer for property access
+        query=q1, key=k1, value=v1, kv_cache=kv_cache,
+        attn_metadata=meta_1
+    )
     
     # Verify Cache was written
     # Check first token of key cache in block 0
@@ -499,22 +508,76 @@ def test_prefix_attention(prefix_len, total_len):
         num_prefill_tokens=seq_len_2
     )
     
-    torch.cuda.synchronize()
-    
-    start = time.time()
-    with torch.no_grad():
-        out2 = layer.forward_vllm_080(
-            layer=layer,
-            query=q2, key=k2, value=v2, kv_cache=kv_cache,
-            attn_metadata=meta_2
-        )
+    out2 = layer.forward_vllm_080(
+        layer=layer,
+        query=q2, key=k2, value=v2, kv_cache=kv_cache,
+        attn_metadata=meta_2
+    )
 
-    # CPU and GPU work async, we prevent CPU reach `used` before GPU finish its jobs
-    torch.cuda.synchronize()
-    used = time.time() - start
-    
     print("  [Success] Stage 2 completed.")
-    print(f'time: {used}')
+
+
+def test_minf(prefix_len, total_len):
+    print("=== Starting MInference Attention Test Case ===")
+    
+    device = "cuda"
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    
+    # 1. Initialize Layer and Cache
+    layer = MockAttentionLayer()
+
+    # --- STAGE 1: Standard Prefill ("Hello my name is") ---
+    print("\n[Stage 1] Running Standard Prefill...")
+    
+    # Sequence length 4, fits in Block 0
+    seq_len_1 = prefix_len
+    
+    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    
+    # Slot mapping: indices [0, 1, 2, 3] in Block 0
+    # Linear indices = block_idx * block_size + offset
+    slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
+    
+    meta_1 = AttnMetadata(
+        prefill_metadata=PrefillMetadata(block_tables=None), # None triggers standard prefill
+        slot_mapping=slot_mapping_1,
+        num_prefill_tokens=seq_len_1
+    )
+    
+    out1 = layer.forward_vllm_080(
+        layer=layer, # Pass self as layer for property access
+        query=q1, key=k1, value=v1, kv_cache=None,
+        attn_metadata=meta_1
+    )
+    
+    # STAGE 2: New Suffix (10 tokens)
+    seq_len_2 = total_len - prefix_len
+    
+    q2 = torch.randn(seq_len_2, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    
+    # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
+    slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
+
+    meta_2 = AttnMetadata(
+        prefill_metadata=PrefillMetadata(
+            block_tables=None, # Presence triggers prefix path
+            seq_lens=[total_len] # Context length including prefix (List[int])
+        ),
+        slot_mapping=slot_mapping_2,
+        num_prefill_tokens=seq_len_2
+    )
+    
+    out2 = layer.forward_vllm_080(
+        layer=layer,
+        query=q2, key=k2, value=v2, kv_cache=None,
+        attn_metadata=meta_2
+    )
+
+    print("  [Success] Stage 2 completed.")
 
 if __name__ == "__main__":
-    test_prefix_attention(2_000, 10_000)
+    test_minf_prefix_attention(2_000, 10_000)
