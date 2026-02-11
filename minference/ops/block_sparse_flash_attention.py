@@ -316,7 +316,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # make sure use .to(tl.int32) that compiler won't treat real_block_idx as pointer
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx).to(tl.int32)
         start_n = real_block_idx * BLOCK_N
-        cols = start_n + offs_n
 
         bt_index = start_n // BLOCK_SIZE            # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
         bt_block_index = start_n % BLOCK_SIZE       # * bt_block_index := exact block inside that block table
@@ -346,9 +345,12 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
 
         # * q and k are not same len. q len is relative
         q_preced_len = k_seqlen - q_seqlen
-        q_absolute = q_preced_len + start_m * BLOCK_M
-        abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
+        # q_absolute = q_preced_len + start_m * BLOCK_M
+        # abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
+        # * abs_offs_m = q_preced_len + start_m * BLOCK_M + tl.arange(0, BLOCK_M)
+        abs_offs_m = q_preced_len + offs_m
         
+        cols = start_n + offs_n
         causal_mask = cols[None, :] <= abs_offs_m[:, None]
 
         # * qk \in (BLOCK_M, BLOCK_DMODEL) \times (BLOCK_DMODEL, BLOCK_N) -> (BLOCK_M, BLOCK_N)
