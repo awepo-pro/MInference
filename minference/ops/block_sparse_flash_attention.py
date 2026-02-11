@@ -222,8 +222,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     Q,                              # * (b=1, h=1, q_seqlen_pad, headdim)
     k_cache,                        # * (#block, block_size, #kv_head=1, headdim)
     v_cache,
-    q_seqlen,                       # * scalar, without padded
-    k_seqlen,
+    q_seqlen: tl.constexpr,                       # * scalar, without padded
+    k_seqlen: tl.constexpr,
     block_tables,                   # * (#batch=1, seqlen // block_size), might pre-allocated (#batch, max(seqlen) // block_size)
     bt_batch,                       # * #batch                in block_tables
     bt_num_block,                   # * seqlen // block_size  in block_tables
@@ -246,8 +246,6 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     dtype: tl.constexpr,
     BLOCK_SIZE: tl.constexpr
 ):
-    cur_q_seqlen = q_seqlen.to(tl.int32)
-    cur_k_seqlen = k_seqlen.to(tl.int32)
     # * ceil_div(seqlen, block_size_M), index of starting block
     start_m = tl.program_id(0)
     # * b \times h
@@ -348,7 +346,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         qk = tl.zeros([BLOCK_M, BLOCK_N], dtype=tl.float32)
 
         # * q and k are not same len. q len is relative
-        q_preced_len = cur_k_seqlen - cur_q_seqlen
+        q_preced_len = k_seqlen - q_seqlen
         # q_absolute = q_preced_len + start_m * BLOCK_M
         # abs_offs_m = q_absolute + tl.arange(0, BLOCK_M)
         # * abs_offs_m = q_preced_len + start_m * BLOCK_M + tl.arange(0, BLOCK_M)
