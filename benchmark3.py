@@ -319,7 +319,7 @@ class MockAttentionLayer:
         value_cache = kv_cache[1] if kv_cache else None
 
         if kv_cache and kv_cache.numel() > 0:
-            assert False, f'{kv_cache.numel()=}'
+            # assert False, f'{kv_cache.numel()=}'
             # We skip updating the KV cache under two conditions:
             #  a. When the Attention Type is ENCODER. In this phase, we compute
             #     only the encoder attention without updating the cache.
@@ -397,7 +397,7 @@ class MockAttentionLayer:
                 print("  [Logic Path] Entering Prefix-Enabled Prefill (minference_prefill_kvcache_func)")
                 print(f'{query.shape=}, {key.shape=}, {value.shape=}')
 
-                assert False
+                # assert False
                 # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
                     
@@ -556,11 +556,11 @@ def test_minf(prefix_len, total_len):
         num_prefill_tokens=seq_len_1
     )
     
-    # out1 = layer.forward_vllm_080(
-    #     layer=layer, # Pass self as layer for property access
-    #     query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
-    #     attn_metadata=meta_1
-    # )
+    out1 = layer.forward_vllm_080(
+        layer=layer, # Pass self as layer for property access
+        query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
+        attn_metadata=meta_1
+    )
     
     # STAGE 2: New Suffix (10 tokens)
     seq_len_2 = total_len
@@ -591,5 +591,5 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
 
 if __name__ == "__main__":
-    # test_minf_prefix_attention(2_000, 10_000)
+    test_minf_prefix_attention(2_000, 10_000)
     test_minf(2_000, 100_000)
