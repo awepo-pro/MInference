@@ -3,6 +3,7 @@ from typing import Optional, List
 from dataclasses import dataclass
 import types
 import time
+import math
 
 # Try importing, mock if not available for standalone testing purposes
 try:
@@ -10,7 +11,8 @@ try:
         block_sparse_attention, 
         block_sparse_attention_with_kvcache
     )
-except ImportError:
+except ImportError as e:
+    print(f'{e=}')
     # Mock for testing if minference is not installed
     def block_sparse_attention(q, k, v, top_k):
         return torch.zeros_like(q)
@@ -419,100 +421,73 @@ class MockAttentionLayer:
 # 3. Test Harness: Prefix Attention
 # ==========================================
 
-def test_prefix_attention():
-    print("=== Starting Prefix Attention Test Case ===")
+def test_long_prefix_attention(target_seq_len=1_000_000):
+    print(f"=== Starting Long Sequence Test: {target_seq_len} tokens ===")
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
     
-    # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
-    
     BLOCK_SIZE = 16
-    NUM_BLOCKS = 100
+    
+    # 1. Calculate required blocks
+    # Formula: ceil(total_len / block_size)
+    num_blocks_needed = math.ceil(target_seq_len / BLOCK_SIZE)
+    print(f"  [Info] Blocks required: {num_blocks_needed}")
+
+    # 2. Initialize a large enough KV Cache
+    # In a real system, this is pre-allocated by the BlockManager
     kv_cache = torch.zeros(
-        2, NUM_BLOCKS, BLOCK_SIZE, layer.num_kv_heads, layer.head_size,
+        2, num_blocks_needed, BLOCK_SIZE, layer.num_kv_heads, layer.head_size,
         dtype=dtype, device=device
     )
     
-    # --- STAGE 1: Standard Prefill ("Hello my name is") ---
-    print("\n[Stage 1] Running Standard Prefill...")
+    # 3. Define the prefix and the new query
+    # Let's assume we have a massive prefix and we are adding 1 new token (Prefill of the next chunk)
+    prefix_len = target_seq_len - 1
+    new_tokens_len = 1 
     
-    # Sequence length 4, fits in Block 0
-    seq_len_1 = 4
-    
-    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
-    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    
-    # Slot mapping: indices [0, 1, 2, 3] in Block 0
-    # Linear indices = block_idx * block_size + offset
-    slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
-    
-    meta_1 = AttnMetadata(
-        prefill_metadata=PrefillMetadata(block_tables=None), # None triggers standard prefill
-        slot_mapping=slot_mapping_1,
-        num_prefill_tokens=seq_len_1
-    )
-    
-    with torch.no_grad():
-        out1 = layer.forward_vllm_080(
-            layer=layer, # Pass self as layer for property access
-            query=q1, key=k1, value=v1, kv_cache=kv_cache,
-            attn_metadata=meta_1
-        )
-    
-    # Verify Cache was written
-    # Check first token of key cache in block 0
-    cached_k_0 = kv_cache[0, 0, 0, :, :].view(1, -1) # [1, 2*64]
-    input_k_0 = k1[0].view(1, -1)
-    if torch.allclose(cached_k_0, input_k_0):
-        print("  [Check] KV Cache populated successfully in Stage 1.")
-    else:
-        print("  [Error] KV Cache mismatch in Stage 1!")
+    # 4. Generate block_tables_2
+    # This is an array of physical indices into the 2nd dimension of kv_cache
+    # For this test, we assume a simple linear mapping: Block 0, Block 1, Block 2...
+    block_tables_2 = torch.arange(num_blocks_needed, dtype=torch.int32, device=device).unsqueeze(0) 
+    # Shape: (batch_size=1, num_blocks_needed)
 
-    # --- STAGE 2: Prefix-Enabled Prefill ("... Bob") ---
-    print("\n[Stage 2] Running Prefix-Enabled Prefill...")
-    
-    # STAGE 2: New Suffix (10 tokens)
-    seq_len_2 = 10 
-    total_len = seq_len_1 + seq_len_2 # 14
-    
-    q2 = torch.randn(seq_len_2, layer.num_heads * layer.head_size, device=device, dtype=dtype)
-    k2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    v2 = torch.randn(seq_len_2, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    
-    # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
-    slot_2 = torch.arange(seq_len_1, total_len, device=device, dtype=torch.long)
-    block_tables_2 = torch.tensor([[0]], device=device, dtype=torch.int32)
-    
+    # 5. Generate slot_mapping
+    # Every token in the 'new' query needs a slot index
+    # Formula: block_idx * block_size + block_offset
+    # For a token at position 'i', slot = i
+    slot_mapping_2 = torch.arange(prefix_len, target_seq_len, device=device, dtype=torch.long)
 
-
+    # 6. Define Metadata
     meta_2 = AttnMetadata(
         prefill_metadata=PrefillMetadata(
-            block_tables=block_tables_2, # Presence triggers prefix path
-            seq_lens=[5] # Context length including prefix (List[int])
+            block_tables=block_tables_2, 
+            seq_lens=[target_seq_len] # Total length including the prefix
         ),
-        slot_mapping=slot_2,
-        num_prefill_tokens=seq_len_2
+        slot_mapping=slot_mapping_2,
+        num_prefill_tokens=new_tokens_len
     )
-    
-    torch.cuda.synchronize()
+
+    # Dummy Tensors for the new query
+    q2 = torch.randn(new_tokens_len, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k2 = torch.randn(new_tokens_len, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v2 = torch.randn(new_tokens_len, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+
+    print(f"  [Running] Executing forward for {target_seq_len} context...")
     
     start = time.time()
     with torch.no_grad():
-        out2 = layer.forward_vllm_080(
+        out = layer.forward_vllm_080(
             layer=layer,
             query=q2, key=k2, value=v2, kv_cache=kv_cache,
             attn_metadata=meta_2
         )
-
-    # CPU and GPU work async, we prevent CPU reach `used` before GPU finish its jobs
-    torch.cuda.synchronize()
-    used = time.time() - start
     
-    print("  [Success] Stage 2 completed.")
-    print(f'time: {used}')
+    if device == "cuda": torch.cuda.synchronize()
+    print(f"  [Success] Time taken: {time.time() - start:.4f}s")
 
 if __name__ == "__main__":
-    test_prefix_attention()
+    # Note: 1M tokens with fp16/head_size 64/2 KV heads is ~256MB per layer.
+    # Adjust target_seq_len based on your available VRAM.
+    test_long_prefix_attention(target_seq_len=100_000)
