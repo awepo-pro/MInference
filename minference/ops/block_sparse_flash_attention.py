@@ -316,6 +316,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
         # make sure use .to(tl.int32) that compiler won't treat real_block_idx as pointer
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx).to(tl.int32)
         start_n = real_block_idx * BLOCK_N
+        cols = start_n + offs_n
 
         bt_index = start_n // BLOCK_SIZE            # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
         bt_block_index = start_n % BLOCK_SIZE       # * bt_block_index := exact block inside that block table
@@ -324,9 +325,7 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
                         + 0 * stride_bt_a \
                         + bt_index * stride_bt_b
 
-        physical_index = tl.load(physical_idx)
-
-        cols = start_n + offs_n
+        physical_index = tl.load(physical_idx).to(tl.int32)
 
         # * #block, block_size
         # * k_base_ptrs \in (BLOCK_DMODEL, 1) \plus (1, BLOCK_N) -> (BLOCK_DEMOEL, BLOCK_N)
