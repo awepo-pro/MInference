@@ -246,13 +246,13 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     dtype: tl.constexpr,
     BLOCK_SIZE: tl.constexpr
 ):
+    cur_q_seqlen = q_seqlen.to(tl.int32)
+    cur_k_seqlen = k_seqlen.to(tl.int32)
     # * ceil_div(seqlen, block_size_M), index of starting block
     start_m = tl.program_id(0)
     # * b \times h
     off_hz = tl.program_id(1)
 
-    cur_q_seqlen = q_seqlen.to(tl.int32)
-    cur_k_seqlen = k_seqlen.to(tl.int32)
 
 
     assert off_hz == 0, 'off_hz != 1'
