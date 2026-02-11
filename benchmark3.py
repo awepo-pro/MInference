@@ -318,7 +318,7 @@ class MockAttentionLayer:
         key_cache = kv_cache[0] if kv_cache[0] is not None else None
         value_cache = kv_cache[1] if kv_cache[1] is not None else None
 
-        if kv_cache and kv_cache.numel() > 0:
+        if key_cache and value_cache and kv_cache.numel() > 0:
             # assert False, f'{kv_cache.numel()=}'
             # We skip updating the KV cache under two conditions:
             #  a. When the Attention Type is ENCODER. In this phase, we compute
