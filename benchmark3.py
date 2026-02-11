@@ -599,11 +599,10 @@ def test_minf(prefix_len, total_len):
         num_prefill_tokens=seq_len_1
     )
     
-    out1, used = layer.forward_vllm_080(
+    out1 = layer.forward_vllm_080(
         layer=layer, # Pass self as layer for property access
         query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
         attn_metadata=meta_1,
-        benchmark=True
     )
     
     # STAGE 2: New Suffix (10 tokens)
@@ -626,10 +625,11 @@ def test_minf(prefix_len, total_len):
         num_prefill_tokens=seq_len_2
     )
     
-    out2 = layer.forward_vllm_080(
+    out2, used = layer.forward_vllm_080(
         layer=layer,
         query=q2, key=k2, value=v2, kv_cache=None,
-        attn_metadata=meta_2
+        attn_metadata=meta_2,
+        benchmark=True
     )
 
     print("  [Success] Stage 2 completed.")
