@@ -139,9 +139,9 @@ def _triton_block_sparse_attn_fwd_kernel(
     block_count = tl.minimum((start_m + 1) * BLOCK_M // BLOCK_N, MAX_BLOCKS_PRE_ROW)
 
     for sparse_block_idx in range(block_count):
-        real_block_idx = tl.load(blocks_ptr + sparse_block_idx).to(tl.int32)
+        real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
         start_n = real_block_idx * BLOCK_N
-        cols = (start_n + offs_n).to(tl.int32)
+        cols = start_n + offs_n
         # -- load k, v --
         k = tl.load(k_ptrs + cols[None, :] * stride_kn)
         v = tl.load(v_ptrs + cols[:, None] * stride_vn)
@@ -313,7 +313,8 @@ def _triton_block_sparse_attn_fwd_kernel_with_kvcache(
     block_count = MAX_BLOCKS_PRE_ROW
 
     for sparse_block_idx in range(block_count):
-        real_block_idx = tl.load(blocks_ptr + sparse_block_idx)
+        # make sure use .to(tl.int32) that compiler won't treat real_block_idx as pointer
+        real_block_idx = tl.load(blocks_ptr + sparse_block_idx).to(tl.int32)
         start_n = real_block_idx * BLOCK_N
 
         bt_index = start_n // BLOCK_SIZE            # * bt_index := block table index inside block tables; BLOCK_SIZE := k_cache.shape[1]
