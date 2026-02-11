@@ -644,6 +644,6 @@ if __name__ == "__main__":
     used = 0
     for _ in range(T):
         # used += test_minf(2_000, 100_000)
-        used += test_minf_prefix_attention(2_000, 10_000)
+        used += test_minf_prefix_attention(2_000, 100_000)
 
     print(f'time: {used / T}')
