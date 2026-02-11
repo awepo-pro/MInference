@@ -494,9 +494,9 @@ def test_minf_prefix_attention(prefix_len, total_len):
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
     
-    q2 = q1 + torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)
-    k2 = k1 + torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    v2 = v1 + torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    q2 = torch.stack([q1, torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
+    k2 = torch.stack([k1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    v2 = torch.stack([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
