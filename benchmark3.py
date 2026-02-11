@@ -520,13 +520,15 @@ def test_minf_prefix_attention(prefix_len, total_len):
         num_prefill_tokens=seq_len_2
     )
     
-    out2 = layer.forward_vllm_080(
+    out2, used = layer.forward_vllm_080(
         layer=layer,
         query=q2, key=k2, value=v2, kv_cache=kv_cache,
-        attn_metadata=meta_2
+        attn_metadata=meta_2,
+        benchmark=True,
     )
 
     print("  [Success] Stage 2 completed.")
+    return used
 
 def warmup():
     print("=== Starting Warm Up GPU ===")
@@ -641,6 +643,7 @@ if __name__ == "__main__":
     T = 10
     used = 0
     for _ in range(T):
-        used += test_minf(2_000, 100_000)
+        # used += test_minf(2_000, 100_000)
+        used += test_minf_prefix_attention(2_000, 10_000)
 
     print(f'time: {used / T}')
