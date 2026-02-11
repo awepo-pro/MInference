@@ -2,6 +2,7 @@ import torch
 from typing import Optional, List
 from dataclasses import dataclass
 import types
+import time
 
 # Try importing, mock if not available for standalone testing purposes
 try:
@@ -454,11 +455,12 @@ def test_prefix_attention():
         num_prefill_tokens=seq_len_1
     )
     
-    out1 = layer.forward_vllm_080(
-        layer=layer, # Pass self as layer for property access
-        query=q1, key=k1, value=v1, kv_cache=kv_cache,
-        attn_metadata=meta_1
-    )
+    with torch.no_grad():
+        out1 = layer.forward_vllm_080(
+            layer=layer, # Pass self as layer for property access
+            query=q1, key=k1, value=v1, kv_cache=kv_cache,
+            attn_metadata=meta_1
+        )
     
     # Verify Cache was written
     # Check first token of key cache in block 0
@@ -484,6 +486,8 @@ def test_prefix_attention():
     slot_2 = torch.arange(seq_len_1, total_len, device=device, dtype=torch.long)
     block_tables_2 = torch.tensor([[0]], device=device, dtype=torch.int32)
     
+
+
     meta_2 = AttnMetadata(
         prefill_metadata=PrefillMetadata(
             block_tables=block_tables_2, # Presence triggers prefix path
@@ -493,13 +497,22 @@ def test_prefix_attention():
         num_prefill_tokens=seq_len_2
     )
     
-    out2 = layer.forward_vllm_080(
-        layer=layer,
-        query=q2, key=k2, value=v2, kv_cache=kv_cache,
-        attn_metadata=meta_2
-    )
+    torch.cuda.synchronize()
+    
+    start = time.time()
+    with torch.no_grad():
+        out2 = layer.forward_vllm_080(
+            layer=layer,
+            query=q2, key=k2, value=v2, kv_cache=kv_cache,
+            attn_metadata=meta_2
+        )
+
+    # CPU and GPU work async, we prevent CPU reach `used` before GPU finish its jobs
+    torch.cuda.synchronize()
+    used = time.time() - start
     
     print("  [Success] Stage 2 completed.")
+    print(f'time: {used}')
 
 if __name__ == "__main__":
     test_prefix_attention()

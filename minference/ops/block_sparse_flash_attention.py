@@ -605,7 +605,8 @@ def block_sparse_attention_with_kvcache(
     # assert block_size % block_size_N == 0, f'{block_size=} is not divisible by {block_size_N}'
 
     # * seqlen before padded
-    q_seqlen = int(query.shape[-2])
+    # * IMPORTANT: query.shape[-2] is still a tensor (with 1 value, not scalar). so we have to explicityly convert it into tl.constexpr
+    q_seqlen = int(query.shape[-2]) 
     k_seqlen = int(k_seqlen_tensor[0])
 
     # * pad to block_size_X, ie. 
