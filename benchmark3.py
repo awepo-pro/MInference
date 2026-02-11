@@ -556,11 +556,11 @@ def test_minf(prefix_len, total_len):
         num_prefill_tokens=seq_len_1
     )
     
-    out1 = layer.forward_vllm_080(
-        layer=layer, # Pass self as layer for property access
-        query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
-        attn_metadata=meta_1
-    )
+    # out1 = layer.forward_vllm_080(
+    #     layer=layer, # Pass self as layer for property access
+    #     query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
+    #     attn_metadata=meta_1
+    # )
     
     # STAGE 2: New Suffix (10 tokens)
     seq_len_2 = total_len
