@@ -314,9 +314,9 @@ class MockAttentionLayer:
         logits_soft_cap: Optional[float] = self.logits_soft_cap
         fp8_attention = kv_cache_dtype.startswith("fp8")
 
-        assert kv_cache.shape[0] == 2, f'{kv_cache.shape}, first diemnsion must be 2'
-        key_cache = kv_cache[0]
-        value_cache = kv_cache[1]
+        # assert kv_cache.shape[0] == 2, f'{kv_cache.shape}, first diemnsion must be 2'
+        key_cache = kv_cache[0] if kv_cache else None
+        value_cache = kv_cache[1] if kv_cache else None
 
         if kv_cache and kv_cache.numel() > 0:
             assert False, f'{kv_cache.numel()=}'
@@ -370,7 +370,7 @@ class MockAttentionLayer:
         if prefill_meta := attn_metadata.prefill_metadata:
             # Prompt run.
             # * kv_cache.numel() != 0, prefill_meta.block_tables is not None
-            if (kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
+            if (kv_cache or kv_cache.numel() == 0 or prefill_meta.block_tables is None or prefill_meta.block_tables.numel() == 0):
                 # po_debug.debug_print(query.shape)        # * (seqlen, #head=14, headdim=64), ie. "Hello my name is" -> (4, 14, 64)
                 # po_debug.debug_print(key.shape)          # * (seqlen, #head=2, headdim=64)
                 # po_debug.debug_print(value.shape)
@@ -394,7 +394,7 @@ class MockAttentionLayer:
                 output[:num_prefill_query_tokens] = out
             else:
                 print("  [Logic Path] Entering Prefix-Enabled Prefill (minference_prefill_kvcache_func)")
-                # assert False
+                assert False
                 # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
                     
