@@ -393,6 +393,7 @@ class MockAttentionLayer:
                 output[:num_prefill_query_tokens] = out
             else:
                 print("  [Logic Path] Entering Prefix-Enabled Prefill (minference_prefill_kvcache_func)")
+                assert False
                 # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
                     
@@ -526,6 +527,16 @@ def test_minf(prefix_len, total_len):
     # 1. Initialize Layer and Cache
     layer = MockAttentionLayer()
 
+    BLOCK_SIZE = 16
+
+    num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
+    print(f"  [Info] Blocks required: {num_blocks_needed}")
+
+    kv_cache = torch.empty(
+        2, num_blocks_needed, BLOCK_SIZE, layer.num_kv_heads, layer.head_size,
+        dtype=dtype, device=device
+    )
+
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
     print("\n[Stage 1] Running Standard Prefill...")
     
@@ -548,7 +559,7 @@ def test_minf(prefix_len, total_len):
     
     out1 = layer.forward_vllm_080(
         layer=layer, # Pass self as layer for property access
-        query=q1, key=k1, value=v1, kv_cache=None,
+        query=q1, key=k1, value=v1, kv_cache=kv_cache,      # kv_cache is empty
         attn_metadata=meta_1
     )
     
