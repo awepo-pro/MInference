@@ -379,6 +379,7 @@ class MockAttentionLayer:
                 # po_debug.debug_print(num_decode_query_tokens)    # * 0
                 
                 print("  [Logic Path] Entering Standard Prefill (minference_prefill_func)")
+                print(f'{query.shape[0]=}')
                 torch.cuda.synchronize()
     
                 start = time.time()
