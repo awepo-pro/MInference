@@ -107,32 +107,32 @@ def get_tensor_model_parallel_rank():
 if not hasattr(torch.ops, "_C_cache_ops"):
     torch.ops._C_cache_ops = types.SimpleNamespace()
 
-def mock_reshape_and_cache_flash(key, value, k_cache, v_cache, slot_mapping, kv_cache_dtype, k_scale, v_scale):
-    """
-    Python implementation of the C++ kernel to write Q/K/V into the block cache.
-    slot_mapping contains linear indices. We assume flattened cache layout for simplicity 
-    or calculate block indices.
-    """
-    # Flatten caches for easier indexing: [num_blocks * block_size, num_kv_heads, head_size]
-    # Note: Real vLLM cache is [num_blocks, block_size, num_kv_heads, head_size]
-    # We will compute block indices from slot_mapping manually for the 5D tensor.
+# def mock_reshape_and_cache_flash(key, value, k_cache, v_cache, slot_mapping, kv_cache_dtype, k_scale, v_scale):
+#     """
+#     Python implementation of the C++ kernel to write Q/K/V into the block cache.
+#     slot_mapping contains linear indices. We assume flattened cache layout for simplicity 
+#     or calculate block indices.
+#     """
+#     # Flatten caches for easier indexing: [num_blocks * block_size, num_kv_heads, head_size]
+#     # Note: Real vLLM cache is [num_blocks, block_size, num_kv_heads, head_size]
+#     # We will compute block indices from slot_mapping manually for the 5D tensor.
     
-    num_kv_heads = k_cache.shape[2]
-    head_size = k_cache.shape[3]
-    block_size = k_cache.shape[1]
+#     num_kv_heads = k_cache.shape[2]
+#     head_size = k_cache.shape[3]
+#     block_size = k_cache.shape[1]
     
-    # Iterate over tokens to cache
-    for i, slot in enumerate(slot_mapping):
-        # slot is a linear index. 
-        # block_idx = slot // block_size
-        # block_offset = slot % block_size
-        block_idx = slot.item() // block_size
-        block_offset = slot.item() % block_size
+#     # Iterate over tokens to cache
+#     for i, slot in enumerate(slot_mapping):
+#         # slot is a linear index. 
+#         # block_idx = slot // block_size
+#         # block_offset = slot % block_size
+#         block_idx = slot.item() // block_size
+#         block_offset = slot.item() % block_size
         
-        k_cache[block_idx, block_offset, :, :] = key[i]
-        v_cache[block_idx, block_offset, :, :] = value[i]
+#         k_cache[block_idx, block_offset, :, :] = key[i]
+#         v_cache[block_idx, block_offset, :, :] = value[i]
 
-torch.ops._C_cache_ops.reshape_and_cache_flash = mock_reshape_and_cache_flash
+# torch.ops._C_cache_ops.reshape_and_cache_flash = mock_reshape_and_cache_flash
 
 
 # ==========================================
