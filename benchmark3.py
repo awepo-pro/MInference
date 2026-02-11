@@ -379,7 +379,7 @@ class MockAttentionLayer:
                 # po_debug.debug_print(num_decode_query_tokens)    # * 0
                 
                 print("  [Logic Path] Entering Standard Prefill (minference_prefill_func)")
-                print(f'{query.shape[0]=}')
+                print(f'{query.shape=}, {key.shape=}, {value.shape=}')
                 torch.cuda.synchronize()
     
                 start = time.time()
@@ -395,6 +395,8 @@ class MockAttentionLayer:
                 output[:num_prefill_query_tokens] = out
             else:
                 print("  [Logic Path] Entering Prefix-Enabled Prefill (minference_prefill_kvcache_func)")
+                print(f'{query.shape=}, {key.shape=}, {value.shape=}')
+
                 assert False
                 # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
