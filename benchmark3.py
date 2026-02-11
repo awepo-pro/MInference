@@ -584,7 +584,7 @@ def test_minf(prefix_len, total_len):
     
     out2 = layer.forward_vllm_080(
         layer=layer,
-        query=q2, key=k2, value=v2, kv_cache=None,
+        query=q2, key=k2, value=v2, kv_cache=kv_cache,
         attn_metadata=meta_2
     )
 
