@@ -593,9 +593,9 @@ def test_minf(prefix_len, total_len):
     # Sequence length 4, fits in Block 0
     seq_len_1 = prefix_len
     
-    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device="cpu", dtype=dtype)
-    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device="cpu", dtype=dtype)
-    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device="cpu", dtype=dtype)
+    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     
     # Slot mapping: indices [0, 1, 2, 3] in Block 0
     # Linear indices = block_idx * block_size + offset
