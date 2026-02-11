@@ -141,7 +141,7 @@ def _triton_block_sparse_attn_fwd_kernel(
     for sparse_block_idx in range(block_count):
         real_block_idx = tl.load(blocks_ptr + sparse_block_idx).to(tl.int32)
         start_n = real_block_idx * BLOCK_N
-        cols = start_n + offs_n
+        cols = (start_n + offs_n).to(tl.int32)
         # -- load k, v --
         k = tl.load(k_ptrs + cols[None, :] * stride_kn)
         v = tl.load(v_ptrs + cols[:, None] * stride_vn)
