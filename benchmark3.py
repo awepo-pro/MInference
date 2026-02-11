@@ -580,4 +580,5 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
 
 if __name__ == "__main__":
-    test_minf_prefix_attention(2_000, 10_000)
+    # test_minf_prefix_attention(2_000, 10_000)
+    test_minf(2_000, 10_000)
