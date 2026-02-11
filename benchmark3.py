@@ -554,7 +554,10 @@ def test_minf(prefix_len, total_len):
     slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
     
     meta_1 = AttnMetadata(
-        prefill_metadata=PrefillMetadata(block_tables=None), # None triggers standard prefill
+        prefill_metadata=PrefillMetadata(
+            block_tables=None,
+            seq_lens=[prefix_len]
+        ), # None triggers standard prefill
         slot_mapping=slot_mapping_1,
         num_prefill_tokens=seq_len_1
     )
@@ -574,14 +577,14 @@ def test_minf(prefix_len, total_len):
     v2 = torch.cat([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
-    slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
+    # slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
 
     meta_2 = AttnMetadata(
         prefill_metadata=PrefillMetadata(
             block_tables=None, # Presence triggers prefix path
             seq_lens=[total_len] # Context length including prefix (List[int])
         ),
-        slot_mapping=slot_mapping_2,
+        slot_mapping=None,
         num_prefill_tokens=seq_len_2
     )
     
@@ -595,4 +598,4 @@ def test_minf(prefix_len, total_len):
 
 if __name__ == "__main__":
     # test_minf_prefix_attention(2_000, 10_000)
-    test_minf(2_000, 10_000)
+    test_minf(2_000, 100_000)
