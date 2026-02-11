@@ -393,7 +393,7 @@ class MockAttentionLayer:
                 output[:num_prefill_query_tokens] = out
             else:
                 print("  [Logic Path] Entering Prefix-Enabled Prefill (minference_prefill_kvcache_func)")
-                assert False
+                # assert False
                 # prefix-enabled attention, invoke by prefill chunk
                 assert prefill_meta.seq_lens is not None
                     
