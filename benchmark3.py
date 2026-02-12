@@ -470,7 +470,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
     )
     
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
-    print("\n[Stage 1] Running Standard Prefill...")
+    print("[Stage 1] Running Standard Prefill...")
     
     seq_len_1 = prefix_len
     
@@ -507,14 +507,17 @@ def test_minf_prefix_attention(prefix_len, total_len):
         print("  [Error] KV Cache mismatch in Stage 1!")
 
     # --- STAGE 2: Prefix-Enabled Prefill ("... Bob") ---
-    print("\n[Stage 2] Running Prefix-Enabled Prefill...")
+    print("[Stage 2] Running Prefix-Enabled Prefill...")
     
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
     
-    q2 = torch.cat([q1, torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
-    k2 = torch.cat([k1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
-    v2 = torch.cat([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    start = time.time()
+    # Note: we don't torch.cat([q1, torch.randn()]), since q1 is shared prefix. Their kv could be found in kv cache
+    q2 = torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    print(f'[INFO]: generate and copy tensor, time used: {time.time() - start}')
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
@@ -536,7 +539,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
         benchmark=True,
     )
 
-    print("  [Success] Stage 2 completed.")
+    print("  [Success] Stage 2 completed.", end='\n\n')
     return used
 
 def warmup():
