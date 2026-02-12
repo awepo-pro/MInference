@@ -342,9 +342,6 @@ class MockAttentionLayer:
                 # If kv_cache is not provided, the new key and value tensors are
                 # not cached. This happens during the initial memory
                 # profiling run.
-                torch.cuda.synchronize()
-
-                start = time.time()
                 torch.ops._C_cache_ops.reshape_and_cache_flash(
                     key,
                     value,
@@ -355,10 +352,6 @@ class MockAttentionLayer:
                     torch.tensor(layer._k_scale),
                     torch.tensor(layer._v_scale),
                 )
-
-                torch.cuda.synchronize()
-                print(f'kv caching: {time.time() - start}')
-
 
         num_prefill_query_tokens, num_prefill_kv_tokens, num_decode_query_tokens = get_num_prefill_decode_query_kv_tokens(attn_metadata, attn_type)
 
@@ -512,12 +505,10 @@ def test_minf_prefix_attention(prefix_len, total_len):
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
     
-    start = time.time()
     # Note: we don't torch.cat([q1, torch.randn()]), since q1 is shared prefix. Their kv could be found in kv cache
     q2 = torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)
     k2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     v2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    print(f'[INFO]: generate and copy tensor, time used: {time.time() - start}')
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
@@ -622,10 +613,12 @@ def test_minf(prefix_len, total_len):
     # STAGE 2: New Suffix (10 tokens)
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
-    
+   
+    start = time.time()
     q2 = torch.cat([q1, torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
     k2 = torch.cat([k1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
     v2 = torch.cat([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    print(f'  [INFO]: generate and copy tensor, time used: {time.time() - start}')
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     # slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
@@ -655,8 +648,11 @@ if __name__ == "__main__":
 
     T = 10
     used = 0
+    prefix = 200_000
+    total = 500_000
+    
     for _ in range(T):
-        # used += test_minf(30_000, 1_000_000)
-        used += test_minf_prefix_attention(300_000, 1_000_000)
+        # used += test_minf(prefix, total)
+        used += test_minf_prefix_attention(prefix, total)
 
     print(f'time: {used / T}')
