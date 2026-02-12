@@ -444,7 +444,7 @@ import math
 
 def test_minf_prefix_attention(prefix_len, total_len):
     # warmup()
-    torch.empty_cache()
+    torch.cuda.empty_cache()
     print("=== Starting Prefix Attention Test Case ===")
     
     device = "cuda"
@@ -646,12 +646,11 @@ def test_minf(prefix_len, total_len):
 
 # VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} benchmark3.py
 if __name__ == "__main__":
-    # test_minf_prefix_attention(2_000, 10_000)
 
     T = 10
     used = 0
-    prefix = 200_000
-    total = 600_000
+    prefix = 300_000
+    total = 500_000
     
     for _ in range(T + 1):
 
