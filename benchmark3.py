@@ -3,6 +3,7 @@ from typing import Optional, List
 from dataclasses import dataclass
 import types
 import time
+import gc
 
 from minference.ops.block_sparse_flash_attention import (
     block_sparse_attention, 
@@ -444,7 +445,6 @@ import math
 
 def test_minf_prefix_attention(prefix_len, total_len):
     # warmup()
-    torch.empty_cache()
     print("=== Starting Prefix Attention Test Case ===")
     
     device = "cuda"
@@ -574,7 +574,6 @@ def test_minf_prefix_attention(prefix_len, total_len):
 
 def test_minf(prefix_len, total_len):
     # warmup()
-    torch.cuda.empty_cache()
     print("=== Starting MInference Attention Test Case ===")
     
     device = "cuda"
@@ -649,14 +648,21 @@ if __name__ == "__main__":
     # test_minf_prefix_attention(2_000, 10_000)
 
     T = 10
-    used = 0
-    prefix = 200_000
-    total = 600_000
+    # used = 0
+    # prefix = 200_000
+    # total = 500_000     # cannot exceed 500_000
     
-    for _ in range(T + 1):
+    for tot in range(10_000, 60_000, 10_000):
+        for pre in range(10_000, tot, 10_000):
+            used = 0
 
-        if _:
-            used += test_minf(prefix, total)
-            # used += test_minf_prefix_attention(prefix, total)
+            for _ in range(T + 1):
 
-    print(f'time: {used / T}')
+                if _:
+                    used += test_minf(pre, tot)
+                    # used += test_minf_prefix_attention(pre, tot)
+
+                gc.collect()
+                torch.cuda.empty_cache()
+
+            print(f'time: {used / T}')
