@@ -529,7 +529,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
             seq_lens=[total_len] # Context length including prefix (List[int])
         ),
         slot_mapping=slot_mapping_2,
-        num_prefill_tokens=seq_len_2
+        num_prefill_tokens=remains
     )
     
     out2, used = layer.forward_vllm_080(
