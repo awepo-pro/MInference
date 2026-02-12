@@ -643,6 +643,8 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
     return used
 
+import json
+
 # VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} benchmark3.py
 if __name__ == "__main__":
     # test_minf_prefix_attention(2_000, 10_000)
@@ -652,17 +654,21 @@ if __name__ == "__main__":
     # prefix = 200_000
     # total = 500_000     # cannot exceed 500_000
     
-    for tot in range(10_000, 60_000, 10_000):
-        for pre in range(10_000, tot, 10_000):
-            used = 0
+    with open('result.txt', 'a') as output:
+        for tot in range(10_000, 60_000, 10_000):
+            for pre in range(10_000, tot, 10_000):
+                used = 0
 
-            for _ in range(T + 1):
+                for _ in range(T + 1):
 
-                if _:
-                    used += test_minf(pre, tot)
-                    # used += test_minf_prefix_attention(pre, tot)
+                    if _:
+                        used += test_minf(pre, tot)
+                        # used += test_minf_prefix_attention(pre, tot)
 
-                gc.collect()
-                torch.cuda.empty_cache()
+                    gc.collect()
+                    torch.cuda.empty_cache()
 
-            print(f'time: {used / T}')
+                print(f'time: {used / T}')
+                output.write(json.dumps({
+                    
+                    })) 
