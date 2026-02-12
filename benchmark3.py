@@ -1,6 +1,6 @@
 import torch
 from typing import Optional, List
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import types
 import time
 import gc
@@ -669,14 +669,14 @@ import json
 if __name__ == "__main__":
     # test_minf_prefix_attention(2_000, 10_000)
 
-    T = 10
+    T = 2
     # used = 0
     # prefix = 200_000
     # total = 500_000     # cannot exceed 500_000
     data = []
     
-    for tot in range(10_000, 60_000, 10_000):
-        for pre in range(10_000, tot, 10_000):
+    for tot in range(400_000, 500_000, 100_000):
+        for pre in range(100_000, tot, 100_000):
             minf_used = 0
             minf_prefix_used = 0
 
@@ -702,12 +702,12 @@ if __name__ == "__main__":
             print(f'time: {avg_minf_prefix_used}')
             
             data.append({
-                'meta': config,
+                'meta': asdict(config),
                 'prefix': pre,
                 'total': tot,
                 'minf': avg_minf_used,
                 'minf with paged attention': avg_minf_prefix_used
             })
 
-    with open('result.txt', 'a') as output:
-        json.dump(data, fp=output)
+    with open('result.txt', 'w') as output:
+        json.dump(data, fp=output, indent=4, default=str)
