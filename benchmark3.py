@@ -673,8 +673,10 @@ if __name__ == "__main__":
     
     for _ in range(T + 1):
 
+        t = test_minf(prefix, total)
+        t = test_minf_prefix_attention(prefix, total)
+
         if _:
-            used += test_minf(prefix, total)
-            # used += test_minf_prefix_attention(prefix, total)
+            used += t
 
     print(f'time: {used / T}')
