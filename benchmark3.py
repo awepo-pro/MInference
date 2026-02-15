@@ -3,6 +3,8 @@ from typing import Optional, List
 from dataclasses import dataclass
 import types
 import time
+import gc
+from enum import Enum
 
 from minference.ops.block_sparse_flash_attention import (
     block_sparse_attention, 
@@ -92,7 +94,7 @@ class AttnMetadata:
     # Additional fields to satisfy the get_num_prefill... helper
     is_prompt: bool = True 
 
-class AttentionType:
+class AttentionType(Enum):
     ENCODER = 0
     DECODER = 1
     ENCODER_DECODER = 2
@@ -142,20 +144,38 @@ def get_tensor_model_parallel_rank():
 # 2. Attention Layer with Your Code
 # ==========================================
 
+@dataclass
+class Config:
+    num_heads: int = 28
+    num_kv_heads: int = 4
+    head_size: int = 128
+    attn_type: AttentionType = AttentionType.DECODER
+    kv_cache_dtype: str = "auto"
+    sliding_window: Optional[int] = None
+    alibi_slopes: Optional[list] = None
+    logits_soft_cap: Optional[float] = None
+    layer_idx: int = 0
+    k_scale: float = 1.0
+    v_scale: float = 1.0
+    block_size: int = 64
+
 class MockAttentionLayer:
-    def __init__(self):
-        self.num_heads = 28
-        self.num_kv_heads = 4
-        self.head_size = 128
+    def __init__(self, config: Config):
+        # Mapping config attributes to the existing internal names
+        self.num_heads = config.num_heads
+        self.num_kv_heads = config.num_kv_heads
+        self.head_size = config.head_size
         self.scale = 1.0 / (self.head_size ** 0.5)
-        self.attn_type = AttentionType.DECODER
-        self.kv_cache_dtype = "auto"
-        self.sliding_window = None
-        self.alibi_slopes = None
-        self.logits_soft_cap = None
-        self.layer_idx = 0
-        self._k_scale = 1.0
-        self._v_scale = 1.0
+        self.attn_type = config.attn_type
+        self.kv_cache_dtype = config.kv_cache_dtype
+        self.sliding_window = config.sliding_window
+        self.alibi_slopes = config.alibi_slopes
+        self.logits_soft_cap = config.logits_soft_cap
+        self.layer_idx = config.layer_idx
+        
+        # Preserving the private underscores used in the original class
+        self._k_scale = config.k_scale
+        self._v_scale = config.v_scale
 
 
     # --- YOUR PROVIDED CODE BELOW ---
@@ -441,19 +461,19 @@ class MockAttentionLayer:
 # ==========================================
 
 import math
+config = Config()
 
 def test_minf_prefix_attention(prefix_len, total_len):
     # warmup()
-    torch.cuda.empty_cache()
     print("=== Starting Prefix Attention Test Case ===")
     
     device = "cuda"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
-    layer = MockAttentionLayer()
+    layer = MockAttentionLayer(config)
 
-    BLOCK_SIZE = 64
+    BLOCK_SIZE = config.block_size
 
     num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
     print(f"  [Info] Blocks required: {num_blocks_needed}")
@@ -574,14 +594,13 @@ def test_minf_prefix_attention(prefix_len, total_len):
 
 def test_minf(prefix_len, total_len):
     # warmup()
-    torch.cuda.empty_cache()
     print("=== Starting MInference Attention Test Case ===")
     
     device = "cuda"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
-    layer = MockAttentionLayer()
+    layer = MockAttentionLayer(config)
 
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
     print("\n[Stage 1] Running Standard Prefill...")
