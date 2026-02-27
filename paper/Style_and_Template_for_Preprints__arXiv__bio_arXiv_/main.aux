@@ -1,0 +1,135 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{minference}
+\citation{pagedattention}
+\citation{flashattention2}
+\citation{minference}
+\citation{geminiteam2024gemini15unlockingmultimodal}
+\citation{zheng2024sglang}
+\citation{minference}
+\citation{pagedattention}
+\citation{pagedattention}
+\citation{zheng2024sglang}
+\citation{minference}
+\citation{pagedattention}
+\citation{zheng2024sglang}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
+\citation{minference}
+\citation{pagedattention}
+\citation{zheng2024sglang}
+\citation{pagedattention}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background}{2}{section.2}\protected@file@percent }
+\newlabel{sec:background}{{2}{2}{Background}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}The KV Cache and Prefix Caching}{2}{subsection.2.1}\protected@file@percent }
+\newlabel{eq:kvcache-size}{{1}{2}{The KV Cache and Prefix Caching}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}PagedAttention and vLLM}{2}{subsection.2.2}\protected@file@percent }
+\citation{vaswani2023attentionneed}
+\citation{flashattention}
+\citation{flashattention2}
+\citation{milakov2018onlinenormalizercalculationsoftmax}
+\citation{minference}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}FlashAttention and Online Softmax}{3}{subsection.2.3}\protected@file@percent }
+\newlabel{eq:attention}{{2}{3}{FlashAttention and Online Softmax}{equation.2}{}}
+\newlabel{eq:online-m}{{3}{3}{FlashAttention and Online Softmax}{equation.3}{}}
+\newlabel{eq:online-l}{{4}{3}{FlashAttention and Online Softmax}{equation.4}{}}
+\newlabel{eq:online-o}{{5}{3}{FlashAttention and Online Softmax}{equation.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}MInference: Dynamic Block-Sparse Attention}{3}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Limitation: MInference Does Not Support KV Cache}{3}{subsection.2.5}\protected@file@percent }
+\newlabel{sec:limitation}{{2.5}{3}{Limitation: MInference Does Not Support KV Cache}{subsection.2.5}{}}
+\newlabel{eq:kv-concat}{{6}{3}{Limitation: MInference Does Not Support KV Cache}{equation.6}{}}
+\citation{minference}
+\citation{minference}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Block-Sparse Attention: Formulation}{4}{section.3}\protected@file@percent }
+\newlabel{sec:sparse}{{3}{4}{Block-Sparse Attention: Formulation}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}The Sparsity Observation}{4}{subsection.3.1}\protected@file@percent }
+\newlabel{eq:block-partition}{{7}{4}{The Sparsity Observation}{equation.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Online Block-Sparse Approximation}{4}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:approx}{{3.2}{4}{Online Block-Sparse Approximation}{subsection.3.2}{}}
+\newlabel{eq:mean-pool}{{8}{4}{Online Block-Sparse Approximation}{equation.8}{}}
+\newlabel{eq:coarse-score}{{9}{4}{Online Block-Sparse Approximation}{equation.9}{}}
+\newlabel{eq:topk}{{10}{4}{Online Block-Sparse Approximation}{equation.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Integration with Online Softmax}{4}{subsection.3.3}\protected@file@percent }
+\newlabel{eq:sparse-output}{{11}{4}{Integration with Online Softmax}{equation.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}The PagedAttention--Block-Sparsity Isomorphism}{4}{section.4}\protected@file@percent }
+\newlabel{sec:isomorphism}{{4}{4}{The PagedAttention--Block-Sparsity Isomorphism}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Why Existing Sparse Attention Cannot Support Paged KV Caches}{4}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Block-Sparse Attention is Naturally Compatible with Paged Memory}{5}{subsection.4.2}\protected@file@percent }
+\newlabel{eq:isomorphism}{{12}{5}{Block-Sparse Attention is Naturally Compatible with Paged Memory}{equation.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Selective Page Access via the Block Table}{5}{subsection.4.3}\protected@file@percent }
+\newlabel{eq:pages-load}{{13}{5}{Selective Page Access via the Block Table}{equation.13}{}}
+\newlabel{eq:page-reduction}{{14}{5}{Selective Page Access via the Block Table}{equation.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Prefix Caching and Shared Pages}{5}{subsection.4.4}\protected@file@percent }
+\citation{minference}
+\@writefile{toc}{\contentsline {section}{\numberline {5}System Design: Block-Sparse Attention with Prefix Caching in vLLM}{6}{section.5}\protected@file@percent }
+\newlabel{sec:system}{{5}{6}{System Design: Block-Sparse Attention with Prefix Caching in vLLM}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Architecture Overview}{6}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Online Importance Prediction}{6}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Block Table--Guided Page Selection}{6}{subsection.5.3}\protected@file@percent }
+\newlabel{eq:selected-cols}{{16}{6}{Block Table--Guided Page Selection}{equation.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Sparse FlashAttention Execution}{6}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Experiments}{6}{section.6}\protected@file@percent }
+\newlabel{sec:experiments}{{6}{6}{Experiments}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Experimental Setup}{6}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Scope.}{6}{section*.1}\protected@file@percent }
+\citation{minference}
+\@writefile{toc}{\contentsline {paragraph}{Compared Systems.}{7}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Model Configuration.}{7}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hardware and precision.}{7}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Implementation.}{7}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Context lengths and prefix configurations.}{7}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Latency Results}{7}{subsection.6.2}\protected@file@percent }
+\citation{higham2002accuracy}
+\citation{minference}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Attention kernel latency (seconds) for 50K, 100K, and 500K context lengths across varying prefix cache fractions. Each group of bars corresponds to a total context length; within each group, bars are ordered by increasing prefix fraction. The proposed system is shown in solid colour; the MInference baseline is shown hatched. Benchmark plots to be inserted.}}{8}{figure.1}\protected@file@percent }
+\newlabel{fig:latency}{{1}{8}{Attention kernel latency (seconds) for 50K, 100K, and 500K context lengths across varying prefix cache fractions. Each group of bars corresponds to a total context length; within each group, bars are ordered by increasing prefix fraction. The proposed system is shown in solid colour; the MInference baseline is shown hatched. Benchmark plots to be inserted}{figure.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Remark on benchmark scope and practical speedup.}{8}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Output Fidelity}{8}{subsection.6.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Attention kernel latency (seconds) for 50K context lengths across varying prefix cache fractions, compared with baseline. there is increase in latency because of paged attention overhead.}}{9}{figure.2}\protected@file@percent }
+\newlabel{fig:result1}{{2}{9}{Attention kernel latency (seconds) for 50K context lengths across varying prefix cache fractions, compared with baseline. there is increase in latency because of paged attention overhead}{figure.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Theoretical Analysis}{9}{section.7}\protected@file@percent }
+\newlabel{sec:theory}{{7}{9}{Theoretical Analysis}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Latency Comparison: Traditional MInference vs.\ KV-Cache-Aware Block-Sparse Attention}{9}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Notation.}{9}{section*.8}\protected@file@percent }
+\citation{flashattention}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Attention kernel latency (seconds) for 100K context lengths across varying prefix cache fractions. There are significant reduction of latency, even shown in first 10k prefix}}{10}{figure.3}\protected@file@percent }
+\newlabel{fig:result2}{{3}{10}{Attention kernel latency (seconds) for 100K context lengths across varying prefix cache fractions. There are significant reduction of latency, even shown in first 10k prefix}{figure.3}{}}
+\newlabel{eq:t-pred-minf}{{17}{10}{Traditional Block-Sparse Attention (MInference)}{equation.17}{}}
+\newlabel{eq:t-minf-attn}{{18}{10}{Traditional Block-Sparse Attention (MInference)}{equation.18}{}}
+\newlabel{eq:t-minf-total}{{19}{10}{Traditional Block-Sparse Attention (MInference)}{equation.19}{}}
+\newlabel{eq:t-pred-proposed}{{20}{10}{Block-Sparse Attention with Paged KV Cache (Proposed)}{equation.20}{}}
+\newlabel{eq:t-proposed-attn}{{21}{10}{Block-Sparse Attention with Paged KV Cache (Proposed)}{equation.21}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Attention kernel latency (seconds) for 500K context lengths across varying prefix cache fractions.}}{11}{figure.4}\protected@file@percent }
+\newlabel{fig:result3}{{4}{11}{Attention kernel latency (seconds) for 500K context lengths across varying prefix cache fractions}{figure.4}{}}
+\newlabel{eq:t-proposed-total}{{22}{11}{Block-Sparse Attention with Paged KV Cache (Proposed)}{equation.22}{}}
+\newlabel{eq:speedup}{{23}{11}{Speedup Analysis}{equation.23}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Approximation Error Bound}{11}{subsection.7.2}\protected@file@percent }
+\newlabel{sec:error-bound}{{7.2}{11}{Approximation Error Bound}{subsection.7.2}{}}
+\citation{minference}
+\citation{pagedattention}
+\citation{flashattention}
+\citation{flashattention2}
+\citation{minference}
+\bibstyle{unsrt}
+\bibdata{references}
+\bibcite{minference}{1}
+\newlabel{eq:error-bound}{{24}{12}{Approximation Error Bound}{equation.24}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Discussion}{12}{section.8}\protected@file@percent }
+\newlabel{sec:discussion}{{8}{12}{Discussion}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}The Isomorphism as a Design Principle}{12}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Relationship to Prior Work}{12}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Limitations and Future Work}{12}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{12}{section.9}\protected@file@percent }
+\newlabel{sec:conclusion}{{9}{12}{Conclusion}{section.9}{}}
+\bibcite{flashattention2}{2}
+\bibcite{geminiteam2024gemini15unlockingmultimodal}{3}
+\bibcite{zheng2024sglang}{4}
+\bibcite{pagedattention}{5}
+\bibcite{flashattention}{6}
+\bibcite{vaswani2023attentionneed}{7}
+\bibcite{milakov2018onlinenormalizercalculationsoftmax}{8}
+\bibcite{higham2002accuracy}{9}
+\bibcite{saha2024iocomplexityattentionoptimal}{10}
+\gdef \@abspage@last{16}
