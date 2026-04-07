@@ -3,6 +3,8 @@ from typing import Optional, List
 from dataclasses import dataclass
 import types
 import time
+import gc
+from enum import Enum
 
 from minference.ops.block_sparse_flash_attention import (
     block_sparse_attention, 
@@ -92,7 +94,7 @@ class AttnMetadata:
     # Additional fields to satisfy the get_num_prefill... helper
     is_prompt: bool = True 
 
-class AttentionType:
+class AttentionType(Enum):
     ENCODER = 0
     DECODER = 1
     ENCODER_DECODER = 2
@@ -142,20 +144,38 @@ def get_tensor_model_parallel_rank():
 # 2. Attention Layer with Your Code
 # ==========================================
 
+@dataclass
+class Config:
+    num_heads: int = 28
+    num_kv_heads: int = 4
+    head_size: int = 128
+    attn_type: AttentionType = AttentionType.DECODER
+    kv_cache_dtype: str = "auto"
+    sliding_window: Optional[int] = None
+    alibi_slopes: Optional[list] = None
+    logits_soft_cap: Optional[float] = None
+    layer_idx: int = 0
+    k_scale: float = 1.0
+    v_scale: float = 1.0
+    block_size: int = 64
+
 class MockAttentionLayer:
-    def __init__(self):
-        self.num_heads = 28
-        self.num_kv_heads = 4
-        self.head_size = 128
+    def __init__(self, config: Config):
+        # Mapping config attributes to the existing internal names
+        self.num_heads = config.num_heads
+        self.num_kv_heads = config.num_kv_heads
+        self.head_size = config.head_size
         self.scale = 1.0 / (self.head_size ** 0.5)
-        self.attn_type = AttentionType.DECODER
-        self.kv_cache_dtype = "auto"
-        self.sliding_window = None
-        self.alibi_slopes = None
-        self.logits_soft_cap = None
-        self.layer_idx = 0
-        self._k_scale = 1.0
-        self._v_scale = 1.0
+        self.attn_type = config.attn_type
+        self.kv_cache_dtype = config.kv_cache_dtype
+        self.sliding_window = config.sliding_window
+        self.alibi_slopes = config.alibi_slopes
+        self.logits_soft_cap = config.logits_soft_cap
+        self.layer_idx = config.layer_idx
+        
+        # Preserving the private underscores used in the original class
+        self._k_scale = config.k_scale
+        self._v_scale = config.v_scale
 
 
     # --- YOUR PROVIDED CODE BELOW ---
@@ -342,9 +362,6 @@ class MockAttentionLayer:
                 # If kv_cache is not provided, the new key and value tensors are
                 # not cached. This happens during the initial memory
                 # profiling run.
-                torch.cuda.synchronize()
-
-                start = time.time()
                 torch.ops._C_cache_ops.reshape_and_cache_flash(
                     key,
                     value,
@@ -355,10 +372,6 @@ class MockAttentionLayer:
                     torch.tensor(layer._k_scale),
                     torch.tensor(layer._v_scale),
                 )
-
-                torch.cuda.synchronize()
-                print(f'kv caching: {time.time() - start}')
-
 
         num_prefill_query_tokens, num_prefill_kv_tokens, num_decode_query_tokens = get_num_prefill_decode_query_kv_tokens(attn_metadata, attn_type)
 
@@ -448,18 +461,19 @@ class MockAttentionLayer:
 # ==========================================
 
 import math
+config = Config()
 
 def test_minf_prefix_attention(prefix_len, total_len):
-    warmup()
+    # warmup()
     print("=== Starting Prefix Attention Test Case ===")
     
     device = "cuda"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
-    layer = MockAttentionLayer()
+    layer = MockAttentionLayer(config)
 
-    BLOCK_SIZE = 64
+    BLOCK_SIZE = config.block_size
 
     num_blocks_needed = math.ceil(total_len / BLOCK_SIZE)
     print(f"  [Info] Blocks required: {num_blocks_needed}")
@@ -470,7 +484,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
     )
     
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
-    print("\n[Stage 1] Running Standard Prefill...")
+    print("[Stage 1] Running Standard Prefill...")
     
     seq_len_1 = prefix_len
     
@@ -507,14 +521,15 @@ def test_minf_prefix_attention(prefix_len, total_len):
         print("  [Error] KV Cache mismatch in Stage 1!")
 
     # --- STAGE 2: Prefix-Enabled Prefill ("... Bob") ---
-    print("\n[Stage 2] Running Prefix-Enabled Prefill...")
+    print("[Stage 2] Running Prefix-Enabled Prefill...")
     
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
     
-    q2 = torch.cat([q1, torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
-    k2 = torch.cat([k1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
-    v2 = torch.cat([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    # Note: we don't torch.cat([q1, torch.randn()]), since q1 is shared prefix. Their kv could be found in kv cache
+    q2 = torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+    k2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+    v2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
@@ -526,7 +541,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
             seq_lens=[total_len] # Context length including prefix (List[int])
         ),
         slot_mapping=slot_mapping_2,
-        num_prefill_tokens=seq_len_2
+        num_prefill_tokens=remains
     )
     
     out2, used = layer.forward_vllm_080(
@@ -536,56 +551,56 @@ def test_minf_prefix_attention(prefix_len, total_len):
         benchmark=True,
     )
 
-    print("  [Success] Stage 2 completed.")
+    print("  [Success] Stage 2 completed.", end='\n\n')
     return used
 
-def warmup():
-    print("=== Starting Warm Up GPU ===")
+# def warmup():
+#     print("=== Starting Warm Up GPU ===")
     
-    device = "cuda"
-    dtype = torch.bfloat16 if device == "cuda" else torch.float32
+#     device = "cuda"
+#     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
-    # 1. Initialize Layer and Cache
-    layer = MockAttentionLayer()
+#     # 1. Initialize Layer and Cache
+#     layer = MockAttentionLayer()
 
-    # --- STAGE 1: Standard Prefill ("Hello my name is") ---
-    print("\n[Stage 1] Running Standard Prefill...")
+#     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
+#     print("\n[Stage 1] Running Standard Prefill...")
     
-    # Sequence length 4, fits in Block 0
-    seq_len_1 = 100
+#     # Sequence length 4, fits in Block 0
+#     seq_len_1 = 100
     
-    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
-    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
-    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+#     q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device, dtype=dtype)
+#     k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
+#     v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)
     
-    # Slot mapping: indices [0, 1, 2, 3] in Block 0
-    # Linear indices = block_idx * block_size + offset
-    slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
+#     # Slot mapping: indices [0, 1, 2, 3] in Block 0
+#     # Linear indices = block_idx * block_size + offset
+#     slot_mapping_1 = torch.arange(seq_len_1, device=device, dtype=torch.long) 
     
-    meta_1 = AttnMetadata(
-        prefill_metadata=PrefillMetadata(
-            block_tables=None,
-            seq_lens=[100]
-        ), # None triggers standard prefill
-        slot_mapping=slot_mapping_1,
-        num_prefill_tokens=seq_len_1
-    )
+#     meta_1 = AttnMetadata(
+#         prefill_metadata=PrefillMetadata(
+#             block_tables=None,
+#             seq_lens=[100]
+#         ), # None triggers standard prefill
+#         slot_mapping=slot_mapping_1,
+#         num_prefill_tokens=seq_len_1
+#     )
     
-    out1 = layer.forward_vllm_080(
-        layer=layer, # Pass self as layer for property access
-        query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
-        attn_metadata=meta_1
-    )
+#     out1 = layer.forward_vllm_080(
+#         layer=layer, # Pass self as layer for property access
+#         query=q1, key=k1, value=v1, kv_cache=None,      # kv_cache is empty
+#         attn_metadata=meta_1
+#     )
 
 def test_minf(prefix_len, total_len):
-    warmup()
+    # warmup()
     print("=== Starting MInference Attention Test Case ===")
     
     device = "cuda"
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     
     # 1. Initialize Layer and Cache
-    layer = MockAttentionLayer()
+    layer = MockAttentionLayer(config)
 
     # --- STAGE 1: Standard Prefill ("Hello my name is") ---
     print("\n[Stage 1] Running Standard Prefill...")
@@ -619,10 +634,12 @@ def test_minf(prefix_len, total_len):
     # STAGE 2: New Suffix (10 tokens)
     seq_len_2 = total_len
     remains = seq_len_2 - prefix_len
-    
+   
+    start = time.time()
     q2 = torch.cat([q1, torch.randn(remains, layer.num_heads * layer.head_size, device=device, dtype=dtype)])
     k2 = torch.cat([k1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
     v2 = torch.cat([v1, torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device, dtype=dtype)])
+    print(f'  [INFO]: generate and copy tensor, time used: {time.time() - start}')
     
     # Slot mapping starts at index 4, length 10 -> [4, 5, ..., 13]
     # slot_mapping_2 = torch.arange(prefix_len, total_len, device=device, dtype=torch.long)
@@ -648,12 +665,18 @@ def test_minf(prefix_len, total_len):
 
 # VLLM_ENABLE_V1_MULTIPROCESSING=0 VLLM_USE_V1=0 ${PYTHON} benchmark3.py
 if __name__ == "__main__":
-    # test_minf_prefix_attention(2_000, 10_000)
 
     T = 10
     used = 0
-    for _ in range(T):
-        # used += test_minf(30_000, 1_000_000)
-        used += test_minf_prefix_attention(300_000, 1_000_000)
+    prefix = 300_000
+    total = 500_000
+    
+    for _ in range(T + 1):
+
+        t = test_minf(prefix, total)
+        t = test_minf_prefix_attention(prefix, total)
+
+        if _:
+            used += t
 
     print(f'time: {used / T}')
