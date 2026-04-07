@@ -1,4 +1,4 @@
-\begin{thebibliography}{10}
+\begin{thebibliography}{1}
 
 \bibitem{minference}
 Huiqiang Jiang, Yucheng Li, Chengruidong Zhang, Qianhui Wu, Xufang Luo, Surin
@@ -7,6 +7,14 @@ Huiqiang Jiang, Yucheng Li, Chengruidong Zhang, Qianhui Wu, Xufang Luo, Surin
   dynamic sparse attention.
 \newblock {\em Advances in Neural Information Processing Systems},
   37:52481--52515, 2024.
+
+\bibitem{pagedattention}
+Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody~Hao Yu,
+  Joseph Gonzalez, Hao Zhang, and Ion Stoica.
+\newblock Efficient memory management for large language model serving with
+  pagedattention.
+\newblock In {\em Proceedings of the 29th symposium on operating systems
+  principles}, pages 611--626, 2023.
 
 \bibitem{flashattention2}
 Tri Dao.
@@ -253,13 +261,10 @@ Lianmin Zheng, Liangsheng Yin, Zhiqiang Xie, Chuyue~Livia Sun, Jeff Huang,
 \newblock {\em Advances in neural information processing systems},
   37:62557--62583, 2024.
 
-\bibitem{pagedattention}
-Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody~Hao Yu,
-  Joseph Gonzalez, Hao Zhang, and Ion Stoica.
-\newblock Efficient memory management for large language model serving with
-  pagedattention.
-\newblock In {\em Proceedings of the 29th symposium on operating systems
-  principles}, pages 611--626, 2023.
+\bibitem{vaswani2023attentionneed}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+  Aidan~N. Gomez, Lukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need, 2023.
 
 \bibitem{flashattention}
 Tri Dao, Dan Fu, Stefano Ermon, Atri Rudra, and Christopher R{\'e}.
@@ -267,11 +272,6 @@ Tri Dao, Dan Fu, Stefano Ermon, Atri Rudra, and Christopher R{\'e}.
   io-awareness.
 \newblock {\em Advances in neural information processing systems},
   35:16344--16359, 2022.
-
-\bibitem{vaswani2023attentionneed}
-Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
-  Aidan~N. Gomez, Lukasz Kaiser, and Illia Polosukhin.
-\newblock Attention is all you need, 2023.
 
 \bibitem{milakov2018onlinenormalizercalculationsoftmax}
 Maxim Milakov and Natalia Gimelshein.
@@ -281,10 +281,5 @@ Maxim Milakov and Natalia Gimelshein.
 Nicholas~J. Higham.
 \newblock {\em Accuracy and Stability of Numerical Algorithms}.
 \newblock Society for Industrial and Applied Mathematics, 2nd edition, 2002.
-
-\bibitem{saha2024iocomplexityattentionoptimal}
-Barna Saha and Christopher Ye.
-\newblock The i/o complexity of attention, or how optimal is flash attention?,
-  2024.
 
 \end{thebibliography}

@@ -421,14 +421,7 @@ $[c \cdot b,\; (c+1) \cdot b)$. In PagedAttention, physical blocks of
 size $B$ tokens are managed by the block table $\phi$, where page $\phi(c)$
 stores the KV vectors for tokens $[c \cdot B,\; (c+1) \cdot B)$.
 
-Setting $b = B$, the correspondence is exact and complete:
-
-\begin{center}
-\textit{The KV vectors required to compute attention block $(r, c)$ are}\\
-\textit{precisely the vectors stored in physical page $\phi(c)$.}
-\end{center}
-
-This yields a direct structural isomorphism:
+Setting $b = B$, the correspondence is exact and complete~\ref{fig:isomorphism}. This yields a direct structural isomorphism:
 %
 \begin{equation}
   \text{Attention Block } (r, c)
@@ -551,6 +544,13 @@ and resolves physical addresses $\{\phi(c) : c \in \mathcal{C}\}$ via the
 block table. This requires no modification to the block table
 structure---it is a direct subset of the lookups that dense attention
 would perform, with unselected pages simply never accessed.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth]{isomorphism.png}
+  \caption{The KV vectors required to compute attention block $(r, c)$ are precisely the vectors stored in physical page $\phi(c)$.}
+  \label{fig:isomorphism}
+\end{figure}
 
 \subsection{Sparse FlashAttention Execution}
 
