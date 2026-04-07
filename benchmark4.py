@@ -10,24 +10,11 @@ import math
 # ==========================================
 
 # Note: In your actual environment, import these from your actual libraries
-try:
-    from minference.ops.block_sparse_flash_attention import (
-        block_sparse_attention, 
-        block_sparse_attention_with_kvcache
-    )
-    from vllm import _custom_ops as vllm_ops
-except ImportError:
-    # Mock implementations if libraries aren't present for syntax checking
-    def block_sparse_attention(q, k, v, top_k):
-        # Mock op: returns standard scaled dot product for shape testing
-        scale = 1.0 / (q.shape[-1] ** 0.5)
-        attn = (q @ k.transpose(-2, -1)) * scale
-        attn = torch.softmax(attn, dim=-1)
-        return attn @ v
-
-    def block_sparse_attention_with_kvcache(q, k, v, k_cache, v_cache, block_tables, top_k, seq_lens):
-        # Mock op
-        return torch.randn_like(q)
+from minference.ops.block_sparse_flash_attention import (
+    block_sparse_attention, 
+    block_sparse_attention_with_kvcache
+)
+from vllm import _custom_ops as vllm_ops
 
 
 def block_sparse_topk_vllm(q, k, v, head_id):
@@ -423,13 +410,9 @@ def test_minf_prefix_attention(prefix_len, total_len):
     remains = seq_len_2 - prefix_len
     
     # Alloc on CPU
-    q_new = torch.randn(remains, layer.num_heads * layer.head_size, device=device_data, dtype=dtype)
-    k_new = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device_data, dtype=dtype)
-    v_new = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device_data, dtype=dtype)
-    
-    q2 = torch.cat([q1, q_new])
-    k2 = torch.cat([k1, k_new])
-    v2 = torch.cat([v1, v_new])
+    q2 = torch.randn(remains, layer.num_heads * layer.head_size, device=device_data, dtype=dtype)
+    k2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device_data, dtype=dtype)
+    v2 = torch.randn(remains, layer.num_kv_heads * layer.head_size, device=device_data, dtype=dtype)
     
     slot_mapping_2 = torch.arange(prefix_len, total_len, device=device_data, dtype=torch.long)
     block_tables_2 = torch.arange(num_blocks_needed, dtype=torch.int32, device=device_comp).unsqueeze(0)
@@ -440,7 +423,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
             seq_lens=[total_len]
         ),
         slot_mapping=slot_mapping_2,
-        num_prefill_tokens=seq_len_2
+        num_prefill_tokens=remains
     )
     
     _, used = layer.forward_vllm_080(
@@ -454,7 +437,7 @@ def test_minf_prefix_attention(prefix_len, total_len):
     return used
 
 def test_minf(prefix_len, total_len):
-    warmup()
+    torch.empty_cache()
     print("=== Starting MInference Attention Test Case (CPU streaming) ===")
     
     # Use CPU for huge tensors
@@ -511,36 +494,19 @@ def test_minf(prefix_len, total_len):
     print("  [Success] Stage 2 completed.")
     return used
 
-def warmup():
-    torch.cuda.empty_cache()
-
-    print("=== Starting Warm Up ===")
-    # Small warmup to load kernels
-    device_data = "cpu"
-    dtype = torch.bfloat16
-    layer = MockAttentionLayer()
-    seq_len_1 = 100
-    q1 = torch.randn(seq_len_1, layer.num_heads * layer.head_size, device=device_data, dtype=dtype)
-    k1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device_data, dtype=dtype)
-    v1 = torch.randn(seq_len_1, layer.num_kv_heads * layer.head_size, device=device_data, dtype=dtype)
-    
-    meta_1 = AttnMetadata(
-        prefill_metadata=PrefillMetadata(block_tables=None, seq_lens=[100]),
-        slot_mapping=torch.arange(seq_len_1, device=device_data, dtype=torch.long),
-        num_prefill_tokens=seq_len_1
-    )
-    
-    layer.forward_vllm_080(
-        layer=layer, query=q1, key=k1, value=v1, kv_cache=None, attn_metadata=meta_1
-    )
 
 if __name__ == "__main__":
     # Test with sizes that previously crashed
     T = 2 # Reduced iterations for demo
     used = 0
-    for _ in range(T):
+    prefix = 30_000
+    total = 1_000_000
+    
+    for _ in range(T + 1):
         # Passing huge total_len (1M) but initializing on CPU
-        used += test_minf(30_000, 1_000_000)
-        # used += test_minf_prefix_attention(300_000, 1_000_000)
+
+        if _:
+            used += test_minf(30_000, 1_000_000)
+            # used += test_minf_prefix_attention(300_000, 1_000_000)
 
     print(f'Average time: {used / T}')
