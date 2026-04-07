@@ -360,7 +360,6 @@ class MockAttentionLayer:
 # ==========================================
 
 def test_minf_prefix_attention(prefix_len, total_len):
-    warmup()
     print("=== Starting Prefix Attention Test Case ===")
     
     # IMPORTANT: Generate Data on CPU to prevent OOM
